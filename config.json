@@ -1,0 +1,19 @@
+{
+    "name": "Sequence_clf",
+    "n_gpu": 1,
+    "arch": {
+        "type": "SeqModel",
+        "args": {
+            "input_size": 4,
+            "hidden_size": 128,
+            "num_layers": 1,
+            "num_classes": 2,
+            "batch_first": true,
+            "bidirectional": true
+        }
+    },
+    "state_file": {
+        "read_len100_mcc": "model/data/read_len100_mcc.plt",
+        "read_len100_recall": "model/data/read_len100_recall.plt"
+    }
+}
