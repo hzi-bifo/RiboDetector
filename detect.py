@@ -11,6 +11,7 @@ from collections import defaultdict
 from parse_config import ConfigParser
 from torch.multiprocessing import Pool
 from torch.utils.data import DataLoader
+from utils.__version__ import __version__
 from argparse import RawTextHelpFormatter
 import data_loader.seq_encoder as SeqEncoder
 from data_loader.dataset import SeqData, PairedReadData
@@ -654,6 +655,8 @@ both: both non-rRNA and rRNA prediction with high confidence.
                           'Not needed when free RAM >=5 * your_file_size (uncompressed, sum of paired ends)',
                           'When chunk_size=256, memory=16 it will load 256 * 16 * 1024 reads each chunk (use ~20 GB for 100bp paired end)'
                       ))
+    args.add_argument('-v', '--version', action='version',
+                      version='%(prog)s {version}'.format(version=__version__))
 
     if not isinstance(args, tuple):
         args = args.parse_args()

@@ -1,4 +1,4 @@
-import itertools
+# import itertools
 import gzip
 from Bio.Seq import Seq
 from pathlib import Path

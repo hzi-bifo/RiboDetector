@@ -6,9 +6,10 @@ import itertools
 import onnxruntime
 import numpy as np
 from tqdm import tqdm
-import torch.multiprocessing as mp
+import multiprocessing as mp
 from collections import defaultdict
 from parse_config import ConfigParser
+from utils.__version__ import __version__
 
 from argparse import RawTextHelpFormatter
 import data_loader.seq_encoder as SeqEncoder
@@ -431,6 +432,9 @@ both: both non-rRNA and rRNA prediction with high confidence.
                       help='chunk_size * threads reads to process per thread.(default: 256) \n{}.'.format(
                           'When chunk_size=1024 and threads=10, each process will load 1024 reads, in total consumming 10G memory'
                       ))
+
+    args.add_argument('-v', '--version', action='version',
+                      version='%(prog)s {version}'.format(version=__version__))
 
     if not isinstance(args, tuple):
         args = args.parse_args()
