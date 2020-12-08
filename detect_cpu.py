@@ -1,3 +1,13 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+'''
+File: detect_cpu.py
+Created Date: January 1st 2020
+Author: ZL Deng <dawnmsg(at)gmail.com>
+---------------------------------------
+Last Modified: 6th December 2020 11:02:19 pm
+'''
+
 import os
 import math
 import gzip
@@ -53,7 +63,6 @@ class Predictor:
         self.config = config
         self.args = args
         self.logger = config.get_logger('predict', 1)
-        # self.batch_size = self.args.memory * 1024
         self.chunk_size = self.args.chunk_size
         self.input = self.args.input
         self.output = self.args.output
@@ -79,7 +88,7 @@ class Predictor:
             model_file_ext = 'mcc'
 
         self.model_file = os.path.join(
-            cd, self.config['state_file']['read_len{}_{}'.format(self.len, model_file_ext)]).replace('.plt', '.onnx')
+            cd, self.config['state_file']['read_len{}_{}'.format(self.len, model_file_ext)]).replace('.pth', '.onnx')
 
         self.model = onnxruntime.InferenceSession(self.model_file)
 
@@ -321,12 +330,15 @@ class Predictor:
             reads_dict[label].append('\n'.join(read))
         return reads_dict
 
-    def separate_paired_reads(self, r1, r1_labels, r2, r2_labels):
+    def separate_paired_reads(self, r1_reads, r1_outs, r2_reads, r2_outs):
         r1_dict = defaultdict(list)
         r2_dict = defaultdict(list)
 
         if self.args.ensure == 'rrna':
-            for r1, r1_label, r2, r2_label in zip(r1, r1_labels, r2, r2_labels):
+            r1_labels = np.argmax(r1_outs, axis=1)
+            r2_labels = np.argmax(r2_outs, axis=1)
+            for r1, r1_label, r2, r2_label in zip(r1_reads, r1_labels, r2_reads, r2_labels):
+
                 if r1_label == r2_label == 1:
                     final_label = 1
                 else:
@@ -334,7 +346,10 @@ class Predictor:
                 r1_dict[final_label].append('\n'.join(r1))
                 r2_dict[final_label].append('\n'.join(r2))
         elif self.args.ensure == 'norrna':
-            for r1, r1_label, r2, r2_label in zip(r1, r1_labels, r2, r2_labels):
+            # for r1, r1_label, r2, r2_label in zip(r1, r1_labels, r2, r2_labels):
+            r1_labels = np.argmax(r1_outs, axis=1)
+            r2_labels = np.argmax(r2_outs, axis=1)
+            for r1, r1_label, r2, r2_label in zip(r1_reads, r1_labels, r2_reads, r2_labels):
                 if r1_label == r2_label == 0:
                     final_label = 0
                 else:
@@ -342,14 +357,24 @@ class Predictor:
 
                 r1_dict[final_label].append('\n'.join(r1))
                 r2_dict[final_label].append('\n'.join(r2))
-        else:
-            for r1, r1_label, r2, r2_label in zip(r1, r1_labels, r2, r2_labels):
+        elif self.args.ensure == 'both':
+            r1_labels = np.argmax(r1_outs, axis=1)
+            r2_labels = np.argmax(r2_outs, axis=1)
+            for r1, r1_label, r2, r2_label in zip(r1_reads, r1_labels, r2_reads, r2_labels):
+                # for r1, r1_label, r2, r2_label in zip(r1, r1_labels, r2, r2_labels):
                 if r1_label == r2_label == 0:
                     final_label = 0
                 elif r1_label == r2_label == 1:
                     final_label = 1
                 else:
                     final_label = -1
+
+                r1_dict[final_label].append('\n'.join(r1))
+                r2_dict[final_label].append('\n'.join(r2))
+        else:
+
+            final_labels = np.argmax(r1_outs + r2_outs, axis=1)
+            for r1, r2, final_label in zip(r1_reads, r2_reads, final_labels):
 
                 r1_dict[final_label].append('\n'.join(r1))
                 r2_dict[final_label].append('\n'.join(r2))
@@ -387,15 +412,15 @@ class Predictor:
             input_encoded_r2 = np.array([SeqEncoder.encode_variable_len_read(
                 read[1], max_len=self.len) for read in r2], dtype=np.float32)
 
-            output_labels_r1 = np.argmax(self.model.run(
-                None, {self.model.get_inputs()[0].name: input_encoded_r1})[0], axis=1)
+            output_r1 = self.model.run(
+                None, {self.model.get_inputs()[0].name: input_encoded_r1})[0]
 
-            output_labels_r2 = np.argmax(self.model.run(
-                None, {self.model.get_inputs()[0].name: input_encoded_r2})[0], axis=1)
+            output_r2 = self.model.run(
+                None, {self.model.get_inputs()[0].name: input_encoded_r2})[0]
 
             out_list.append(self.separate_paired_reads(
-                r1, output_labels_r1, r2, output_labels_r2))
-            # print('.', end='')
+                r1, output_r1, r2, output_r2))
+
             q_pbar.put(self.SENTINEL)
 
     def listener(self, q_pbar):
@@ -418,11 +443,12 @@ if __name__ == '__main__':
                       help='Path of the output sequence files after rRNAs removal (same number of files as input). \n(Note: 2 times slower to write gz files)')
     args.add_argument('-r', '--rrna', default=None, type=str, nargs='*',
                       help='Path of the output sequence file of detected rRNAs (same number of files as input)')
-    args.add_argument('-e', '--ensure', default="rrna", type=str, choices=['rrna', 'norrna', 'both'],
-                      help='''Only output certain sequences with high confidence 
+    args.add_argument('-e', '--ensure', default="none", type=str, choices=['rrna', 'norrna', 'both', 'none'],
+                      help='''Only output certain sequences with high confidence
 norrna: output non-rRNAs with high confidence, remove as many rRNAs as possible;
 rrna: vice versa, output rRNAs with high confidence;
-both: both non-rRNA and rRNA prediction with high confidence.
+both: both non-rRNA and rRNA prediction with high confidence;
+none: give label based on the mean probability of read pair.
       (Only applicable for paired end reads, discard the read pair when their predicitons are discordant)''')
 
     args.add_argument('-t', '--threads', default=10, type=int,

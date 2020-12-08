@@ -1,3 +1,14 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+'''
+File: detect.py
+Created Date: January 1st 2020
+Author: ZL Deng <dawnmsg(at)gmail.com>
+---------------------------------------
+Last Modified: 6th December 2020 10:57:59 pm
+'''
+
 import os
 import gzip
 import math
@@ -131,9 +142,9 @@ class Predictor:
         if self.config['n_gpu'] > 1:
             model = torch.nn.DataParallel(model)
 
-        if torch.cuda.is_available():  # and self.args.cpu == False:
+        if torch.cuda.is_available():
             self.device = 'cuda'
-            self.non_blocking = True
+            self.has_cuda = True
             state = torch.load(self.state_file)
         else:
             self.logger.error('{}No visible CUDA devices!{} Please use detect_cpu.py to run it on CPU if you do not have GPU'.format(
@@ -152,7 +163,7 @@ class Predictor:
         state_dict = state['state_dict']
         model.load_state_dict(state_dict)
 
-        self.model = model.to(self.device, non_blocking=self.non_blocking)
+        self.model = model.to(self.device, non_blocking=self.has_cuda)
 
     def run(self):
         num_inputs = len(self.input)
@@ -232,7 +243,7 @@ class Predictor:
 
             data_loader = tqdm(DataLoader(paired_reads_data,
                                           num_workers=self.args.threads,
-                                          pin_memory=torch.cuda.is_available(),
+                                          pin_memory=self.has_cuda,
                                           batch_size=self.batch_size,
                                           collate_fn=partial(unlabeled_paired_read_collate_fn, max_len=self.len)),
                                total=num_batches)
@@ -240,9 +251,9 @@ class Predictor:
             with torch.no_grad():
                 for r1, r1_data, r2, r2_data in data_loader:
                     r1_output = self.model(r1_data.to(
-                        self.device, non_blocking=self.non_blocking))
+                        self.device, non_blocking=self.has_cuda))
                     r2_output = self.model(r2_data.to(
-                        self.device, non_blocking=self.non_blocking))
+                        self.device, non_blocking=self.has_cuda))
 
                     # output the predicted probability of two classes
                     # for read_r1, r1_probs, r2_probs in zip(r1,
@@ -260,11 +271,14 @@ class Predictor:
                     #         '\n')[0]] + list(map(str, r2_probs))
                     #     prob_out2_fh.write('\t'.join(read_r2_probs) + '\n')
 
-                    r1_batch_labels = torch.argmax(r1_output, dim=1).tolist()
-                    r2_batch_labels = torch.argmax(r2_output, dim=1).tolist()
+                    # r1_batch_labels = torch.argmax(r1_output, dim=1).tolist()
+                    # r2_batch_labels = torch.argmax(r2_output, dim=1).tolist()
+
+                    # r1_dict, r2_dict = self.separate_paired_reads(
+                    #     r1, r1_batch_labels, r2, r2_batch_labels)
 
                     r1_dict, r2_dict = self.separate_paired_reads(
-                        r1, r1_batch_labels, r2, r2_batch_labels)
+                        r1, r1_output, r2, r2_output)
                     if r1_dict[0]:
                         norrna1_fh.write('\n'.join(r1_dict[0]) + '\n')
                         norrna2_fh.write('\n'.join(r2_dict[0]) + '\n')
@@ -333,7 +347,7 @@ class Predictor:
             num_batches = math.ceil(num_seqs / self.batch_size)
             data_loader = tqdm(DataLoader(reads_data,
                                           num_workers=self.args.threads,
-                                          pin_memory=torch.cuda.is_available(),
+                                          pin_memory=self.has_cuda,
                                           batch_size=self.batch_size,
                                           collate_fn=partial(unlabeled_read_collate_fn, max_len=self.len)),
                                total=num_batches)
@@ -342,7 +356,7 @@ class Predictor:
             with torch.no_grad():
                 for reads, data in data_loader:
                     output = self.model(
-                        data.to(self.device, non_blocking=self.non_blocking))
+                        data.to(self.device, non_blocking=self.has_cuda))
                     batch_labels = torch.argmax(output, dim=1).tolist()
                     separated_reads = Predictor.separate_reads(
                         reads, batch_labels)
@@ -429,24 +443,24 @@ class Predictor:
                     num_read_chunk = len(paired_reads_data)
                     data_loader = DataLoader(paired_reads_data,
                                              num_workers=self.args.threads,
-                                             pin_memory=torch.cuda.is_available(),
+                                             pin_memory=self.has_cuda,
                                              batch_size=self.batch_size,
                                              collate_fn=partial(unlabeled_paired_read_collate_fn,
                                                                 max_len=self.len))
                     num_read += num_read_chunk
                     for r1, r1_data, r2, r2_data in data_loader:
                         r1_output = self.model(r1_data.to(
-                            self.device, non_blocking=self.non_blocking))
+                            self.device, non_blocking=self.has_cuda))
                         r2_output = self.model(r2_data.to(
-                            self.device, non_blocking=self.non_blocking))
+                            self.device, non_blocking=self.has_cuda))
 
-                        r1_batch_labels = torch.argmax(
-                            r1_output, dim=1).tolist()
-                        r2_batch_labels = torch.argmax(
-                            r2_output, dim=1).tolist()
+                        # r1_batch_labels = torch.argmax(
+                        #     r1_output, dim=1).tolist()
+                        # r2_batch_labels = torch.argmax(
+                        #     r2_output, dim=1).tolist()
 
                         r1_dict, r2_dict = self.separate_paired_reads(
-                            r1, r1_batch_labels, r2, r2_batch_labels)
+                            r1, r1_output, r2, r2_output)
                         if r1_dict[0]:
                             norrna1_fh.write('\n'.join(r1_dict[0]) + '\n')
                             norrna2_fh.write('\n'.join(r2_dict[0]) + '\n')
@@ -514,14 +528,14 @@ class Predictor:
 
                     data_loader = DataLoader(reads_data,
                                              num_workers=self.args.threads,
-                                             pin_memory=torch.cuda.is_available(),
+                                             pin_memory=self.has_cuda,
                                              batch_size=self.batch_size,
                                              collate_fn=partial(unlabeled_read_collate_fn, max_len=self.len))
                     num_read += num_read_chunk
 
                     for reads, data in data_loader:
                         output = self.model(
-                            data.to(self.device, non_blocking=self.non_blocking))
+                            data.to(self.device, non_blocking=self.has_cuda))
                         batch_labels = torch.argmax(output, dim=1).tolist()
                         separated_reads = Predictor.separate_reads(
                             reads, batch_labels)
@@ -580,23 +594,26 @@ class Predictor:
             reads_dict[label].append(read)
         return reads_dict
 
-    def separate_paired_reads(self, r1, r1_labels, r2, r2_labels):
+    def separate_paired_reads(self, r1_reads, r1_outs, r2_reads, r2_outs):
         r1_dict = defaultdict(list)
         r2_dict = defaultdict(list)
-        # final_labels = []
+
         if self.args.ensure == 'rrna':
-            for r1, r1_label, r2, r2_label in zip(r1, r1_labels, r2, r2_labels):
+            r1_labels = torch.argmax(r1_outs, axis=1).tolist()
+            r2_labels = torch.argmax(r2_outs, axis=1).tolist()
+            for r1, r1_label, r2, r2_label in zip(r1_reads, r1_labels, r2_reads, r2_labels):
+
                 if r1_label == r2_label == 1:
                     final_label = 1
-                    # final_labels.append(1)
                 else:
                     final_label = 0
-                    # final_labels.append(0)
                 r1_dict[final_label].append(r1)
                 r2_dict[final_label].append(r2)
         elif self.args.ensure == 'norrna':
-            for r1, r1_label, r2, r2_label in zip(r1, r1_labels, r2, r2_labels):
-                # for r1_label, r2_label in zip(r1_labels, r2_labels):
+            # for r1, r1_label, r2, r2_label in zip(r1, r1_labels, r2, r2_labels):
+            r1_labels = torch.argmax(r1_outs, axis=1).tolist()
+            r2_labels = torch.argmax(r2_outs, axis=1).tolist()
+            for r1, r1_label, r2, r2_label in zip(r1_reads, r1_labels, r2_reads, r2_labels):
                 if r1_label == r2_label == 0:
                     final_label = 0
                 else:
@@ -604,9 +621,11 @@ class Predictor:
 
                 r1_dict[final_label].append(r1)
                 r2_dict[final_label].append(r2)
-        else:
-            for r1, r1_label, r2, r2_label in zip(r1, r1_labels, r2, r2_labels):
-                # for r1_label, r2_label in zip(r1_labels, r2_labels):
+        elif self.args.ensure == 'both':
+            r1_labels = torch.argmax(r1_outs, axis=1).tolist()
+            r2_labels = torch.argmax(r2_outs, axis=1).tolist()
+            for r1, r1_label, r2, r2_label in zip(r1_reads, r1_labels, r2_reads, r2_labels):
+                # for r1, r1_label, r2, r2_label in zip(r1, r1_labels, r2, r2_labels):
                 if r1_label == r2_label == 0:
                     final_label = 0
                 elif r1_label == r2_label == 1:
@@ -616,10 +635,14 @@ class Predictor:
 
                 r1_dict[final_label].append(r1)
                 r2_dict[final_label].append(r2)
+        else:
 
-        # for r1, r2, label in zip(r1, r2, final_labels):
-        #     r1_dict[label].append(r1)
-        #     r2_dict[label].append(r2)
+            final_labels = torch.argmax(r1_outs + r2_outs, axis=1).tolist()
+            for r1, r2, final_label in zip(r1_reads, r2_reads, final_labels):
+
+                r1_dict[final_label].append(r1)
+                r2_dict[final_label].append(r2)
+
         return r1_dict, r2_dict
 
 
@@ -638,14 +661,14 @@ if __name__ == '__main__':
                       help='Path of the output sequence files after rRNAs removal (same number of files as input). \n(Note: 2 times slower to write gz files)')
     args.add_argument('-r', '--rrna', default=None, type=str, nargs='*',
                       help='Path of the output sequence file of detected rRNAs (same number of files as input)')
-    args.add_argument('-e', '--ensure', default="rrna", type=str, choices=['rrna', 'norrna', 'both'],
+    args.add_argument('-e', '--ensure', default="none", type=str, choices=['rrna', 'norrna', 'both', 'none'],
                       help='''Only output certain sequences with high confidence 
 norrna: output non-rRNAs with high confidence, remove as many rRNAs as possible;
 rrna: vice versa, output rRNAs with high confidence;
-both: both non-rRNA and rRNA prediction with high confidence.
+both: both non-rRNA and rRNA prediction with high confidence;
+none: give label based on the mean probability of read pair.
       (Only applicable for paired end reads, discard the read pair when their predicitons are discordant)''')
-    # args.add_argument('--cpu', default=False, action='store_true',
-    #   help='Use CPU even GPU is available. Useful when all GPUs and GPU RAM are occupied.')
+
     args.add_argument('-t', '--threads', default=10, type=int,
                       help='number of threads to use. (default: 10)')
     args.add_argument('-m', '--memory', default=32, type=int,

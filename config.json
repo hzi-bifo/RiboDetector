@@ -13,7 +13,9 @@
         }
     },
     "state_file": {
-        "read_len100_mcc": "model/data/read_len100_mcc.plt",
-        "read_len100_recall": "model/data/read_len100_recall.plt"
+        "read_len100_mcc": "model/data/read_len100_mcc.pth",
+        "read_len150_mcc": "model/data/read_len100_mcc.pth",
+        "read_len50_mcc": "model/data/read_len100_mcc.pth",
+        "read_len100_recall": "model/data/read_len100_recall.pth"
     }
 }
