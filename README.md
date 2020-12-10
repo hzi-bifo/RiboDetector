@@ -94,6 +94,27 @@ optional arguments:
 
 ### Benchmarks
 
+We benchmarked five different rRNA detection methods including RiboDetector on 8 benchmarking datasets as following: 
+
+- 20M paired end reads simulated based on  rRNA sequences from Silva database, those sequences are distinct from sequences used for training and validation.
+
+- 20M paired end reads simulated based on 500K CDS sequences from OMA databases.
+
+- 27,206,792 paired end reads simulated based on 13,848 viral gene sequences downloaded from ENA database.
+
+- 7,917,920 real paired end amplicon sequencing reads targeting V1-V2 region  of  16s rRNA genes from oral microbiome study.
+
+- 6,330,381 paired end reads simulated from 106,880 human noncoding RNA sequences.
+
+- OMA_Silva dataset in figure C contains 1,027,675 paired end reads simulated on CDS sequences which share similarity to rRNA genes, the sequences with identity >=98% and query coverage >=90% to rRNAs were excluded.
+
+- HOMD dataset in figure C has 100,558 paired end reads simulated on CDS sequences from HOMD database which share similarity to the FP sequences of three tools, again sequences with identity >=98% and query coverage >=90% to rRNAs were excluded.
+
+- GO_FP_N_02 in figure C consisting of 678,250 paired end reads was simulated from OMA sequences which have the GO with FP reads ratio >=0.2 on 20M mRNA reads dataset for BWA, RiboDetector or SortMeRNA.
+
+![Benchmarking the performance and runtime of different rRNA sequences detection methods](./benchmarks/benchmarks.jpg)
+
+Figure C shows RiboDetector has remarkble generalization ability and is capable of detecting novel rRNA sequences.
 
 ### Acknowledgements
 The scripts from the `base` dir were from the template [pytorch-template

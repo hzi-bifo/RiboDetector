@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
 '''
 File: convert_onnx.py
 Created Date: January 1st 2020
