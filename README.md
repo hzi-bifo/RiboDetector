@@ -116,9 +116,9 @@ We benchmarked five different rRNA detection methods including RiboDetector on 8
 
 In the figure A and C, the definiation of *FPNR* and *FNR* are:
 
-<img src="https://render.githubusercontent.com/render/math?math=FPNR=100\frac{false\:predictions}{total \: sequences}">
+<img src="https://render.githubusercontent.com/render/math?math=\largeFPNR=100\frac{false\:predictions}{total \: sequences}">
 
-<img src="https://render.githubusercontent.com/render/math?math=FNR=100\frac{false \:negatives}{total \:positives}">
+<img src="https://render.githubusercontent.com/render/math?math=\largeFNR=100\frac{false \:negatives}{total \:positives}">
 
 Figure C shows RiboDetector has remarkble generalization ability and is capable of detecting novel rRNA sequences.
 
