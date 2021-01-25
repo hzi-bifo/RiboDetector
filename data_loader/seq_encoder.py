@@ -3,13 +3,10 @@ import gzip
 from Bio.Seq import Seq
 from pathlib import Path
 from functools import partial
-# from multiprocessing import Pool
-# from multiprocess import Pool
-from mimetypes import guess_type
 from itertools import islice
+from mimetypes import guess_type
 from data_loader.fastx_parser import seq_parser
 
-# f = io.BufferedReader(gz)
 
 BASE_DICT = {"A": (1, 0, 0, 0),
              "C": (0, 1, 0, 0),
@@ -65,7 +62,6 @@ def load_reads(seq_file, label=None, max_len=100):
     if label is None:
         with _open(seq_file) as fh:
             for record in seq_parser(fh, seq_type):
-                # seq = record[1]
                 read_list.append(record)
     else:
         with _open(seq_file) as fh:
@@ -92,11 +88,6 @@ def get_seq_chunks(seq_file, chunk_size=1048576):
 
 
 def get_pairedread_chunks(r1_seq_file, r2_seq_file, chunk_size=1048576):
-    # r1_seq_file = seq_file_list[0]
-    # r2_seq_file = seq_file_list[1]
-    # with Pool(2) as p:
-    #     yield p.map(partial(get_seq_chunks, chunk_size), seq_file_list)
-
     for r1_chunk, r2_chunk in zip(get_seq_chunks(r1_seq_file, chunk_size), get_seq_chunks(r2_seq_file, chunk_size)):
         yield r1_chunk, r2_chunk
 
@@ -137,20 +128,16 @@ def encode_read(read):
 
 
 def encode_variable_len_read(read, max_len=100):
-    # return encode_read(get_read_with_maxlen(read, max_len=max_len))
-    # encoded_read = [ZERO_LIST] * max_len
-    # max_len_read = read[:max_len]
-    # encoded_read[:len(max_len_read)] = [BASE_DICT.get(base, ZERO_LIST) for base in max_len_read]
+
     read_len = len(read)
-    # If read len larger than max len, extract the center max_len sub sequence
-    if read_len > max_len:
+    if read_len >= max_len:
         # start = (read_len - max_len) // 2
         # end = max_len + start
         # encoded_read = [BASE_DICT.get(base, ZERO_LIST) for base in read[start:end]]
         encoded_read = [BASE_DICT.get(base, ZERO_LIST)
                         for base in read[:max_len]]
-    elif read_len == max_len:
-        encoded_read = [BASE_DICT.get(base, ZERO_LIST) for base in read]
+    # elif read_len == max_len:
+    #     encoded_read = [BASE_DICT.get(base, ZERO_LIST) for base in read]
     else:
         encoded_read = [ZERO_LIST] * max_len
         encoded_read[:read_len] = [BASE_DICT.get(
@@ -161,19 +148,15 @@ def encode_variable_len_read(read, max_len=100):
 def encode_seq_reads(seq, step_size, max_len=100):
     seq_len = len(seq)
     seq_feature = [BASE_DICT.get(base, ZERO_LIST) for base in seq]
-    # seq_rc_feature = [BASE_DICT.get(base, ZERO_LIST) for base in seq_rc]
     encoded_read_list = []
     for i in range(0, seq_len, step_size):
         encoded_read = [ZERO_LIST] * max_len
 
         if seq_len >= i + max_len:
-            # encoded_read = seq_feature[i:i + max_len]
             encoded_read_list.append(seq_feature[i:i + max_len])
         else:
-            # missing_len = read_len + i - seq_len
             if seq_len > i + max_len / 2:
                 encoded_read[:seq_len - i] = seq_feature[i:]
                 encoded_read_list.append(encoded_read)
-            else:
-                break
+            break
     return encoded_read_list

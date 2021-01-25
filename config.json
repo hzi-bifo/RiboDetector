@@ -9,13 +9,12 @@
             "num_layers": 1,
             "num_classes": 2,
             "batch_first": true,
-            "bidirectional": true
+            "bidirectional": true,
+            "pack_seq": true
         }
     },
     "state_file": {
-        "read_len100_mcc": "model/data/read_len100_mcc.pth",
-        "read_len150_mcc": "model/data/read_len100_mcc.pth",
-        "read_len50_mcc": "model/data/read_len100_mcc.pth",
-        "read_len100_recall": "model/data/read_len100_recall.pth"
+        "mcc": "model/data/ribodetector_600k_variable_len70_101_epoch47.pth",
+        "recall": "model/data/ribodetector_600k_variable_len70_101_epoch47.pth"
     }
 }

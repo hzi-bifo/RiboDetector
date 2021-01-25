@@ -28,37 +28,11 @@ import data_loader.seq_encoder as SeqEncoder
 cd = os.path.dirname(os.path.abspath(__file__))
 
 
-def open_for_write(read_file):
-    """Open a plain text or gzipped text file for writing according to the file name extension
-
-    Args:
-        read_file (str): the file name to write
-
-    Returns:
-        file handle: the opened file handle for writing
-    """
-    if read_file.endswith('gz'):
-        return gzip.open(read_file, mode='wt', compresslevel=5)
-    else:
-        return open(read_file, 'w')
-
-
-class colors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    OKYELLOW = '\033[33m'
-    OKMAG = '\033[35m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-    UPDATE = '\033[F'
-
-
 class Predictor:
+    """
+    Main class of predictor for rRNA, non-rRNA sequences
+    """
+
     def __init__(self, config, args):
         self.config = config
         self.args = args
@@ -70,27 +44,37 @@ class Predictor:
         self.SENTINEL = 1  # progressbar signal
 
     def load_model(self):
-        if self.args.len < 50:
+        """Load the right model file for classification 
+
+        Raises:
+            RuntimeError: raise error if input sequence length <40
+        """
+
+        self.len = self.args.len
+
+        if self.len < 40:
             self.logger.error('{}Sequence length is too short to classify!{}'.format(
                 colors.FAIL,
                 colors.ENDC))
             raise RuntimeError(
-                "Sequence length must be set to larger than 50.")
-        elif 50 <= self.args.len < 100:
-            self.len = 50
-        elif 100 <= self.args.len < 150:
-            self.len = 100
-        else:
-            self.len = 150
+                "Sequence length must be set to larger than 40.")
+
+        # High recall model if ensure non-rRNA
         if self.args.ensure == 'norrna':
             model_file_ext = 'recall'
         else:
             model_file_ext = 'mcc'
 
         self.model_file = os.path.join(
-            cd, self.config['state_file']['read_len{}_{}'.format(self.len, model_file_ext)]).replace('.pth', '.onnx')
+            cd, self.config['state_file'][model_file_ext]).replace('.pth', '.onnx')
 
-        self.model = onnxruntime.InferenceSession(self.model_file)
+        # self.model = onnxruntime.InferenceSession(self.model_file)
+        so = onnxruntime.SessionOptions()
+        # so.intra_op_num_threads = 2
+        # so.execution_mode = onnxruntime.ExecutionMode.ORT_SEQUENTIAL
+        so.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
+
+        self.model = onnxruntime.InferenceSession(self.model_file, so)
 
         self.logger.info('Using high {} model file: {}{}{}{} on CPU'.format(model_file_ext.upper(),
                                                                             colors.BOLD,
@@ -99,6 +83,10 @@ class Predictor:
                                                                             colors.ENDC))
 
     def run(self):
+        """
+        Load data and run the predictor
+        """
+
         num_workers = self.args.threads
         num_inputs = len(self.input)
         num_rrna_outputs = None if self.rrna is None else len(self.rrna)
@@ -118,7 +106,10 @@ class Predictor:
 
         is_paired = (num_inputs == 2)
 
+        # Manager for multiprocessing
         manager = mp.Manager()
+
+        # List to store prediction results
         results = manager.list()
         work = manager.Queue(num_workers)
 
@@ -128,6 +119,7 @@ class Predictor:
         q_pbar = mp.Queue()
 
         if is_paired:
+            # Load paired end read files with multiprocessing
             with mp.Pool(2) as p:
                 input_reads = p.map(SeqEncoder.load_reads, self.input)
 
@@ -149,6 +141,7 @@ class Predictor:
                     colors.ENDC))
                 rrna1_fh = open_for_write(self.rrna[0])
                 rrna2_fh = open_for_write(self.rrna[1])
+                num_rrna = 0
 
             self.logger.info('Writing output non-rRNA sequences into file: {}{}{}'.format(
                 colors.OKBLUE,
@@ -170,18 +163,20 @@ class Predictor:
                     unclf2,
                     colors.ENDC))
 
-            num_rrna = 0
-            num_unknown = 0
+                num_unknown = 0
 
+            # Start the listener process to minitor the progress
             proc = mp.Process(target=self.listener, args=(q_pbar,))
             proc.start()
 
-            for i in range(num_workers):
+            # Start the classification processes
+            for _i in range(num_workers):
                 p = mp.Process(target=self.classify_paired_reads,
                                args=(work, results, q_pbar))
                 p.start()
                 pool.append(p)
 
+            # Input reads chunks
             iters = itertools.chain(Predictor.generate_paired_read_chunks(
                 input_reads, self.chunk_size), (None,) * num_workers)
             for read in iters:
@@ -197,9 +192,8 @@ class Predictor:
                 colors.OKBLUE,
                 colors.ENDC))
 
-            num_rrna = 0
-            num_unknown = 0
             for r1_dict, r2_dict in results:
+                # Load the prediciton results and split the input reads accordingly
 
                 if r1_dict[0]:
                     norrna1_fh.write('\n'.join(r1_dict[0]) + '\n')
@@ -216,21 +210,24 @@ class Predictor:
 
                     # del r1_data, r2_data, r1_output, r2_output, r1_batch_labels, r2_batch_labels
 
-            self.logger.info('Done! Detected {}{}{}{} rRNA sequences, discarded {}{}{}{} unclassified sequences'.format(
-                colors.BOLD,
-                colors.OKCYAN,
-                num_rrna,
-                colors.ENDC,
-                colors.BOLD,
-                colors.OKCYAN,
-                num_unknown,
-                colors.ENDC))
-
             if self.rrna is not None:
+                self.logger.info('Done! Detected {}{}{}{} rRNA sequences.'.format(
+                    colors.BOLD,
+                    colors.OKCYAN,
+                    num_rrna,
+                    colors.ENDC
+                ))
+
                 rrna1_fh.close()
                 rrna2_fh.close()
 
             if self.args.ensure == 'both':
+                self.logger.info('Discarded {}{}{}{} unclassified sequences.'.format(
+                    colors.BOLD,
+                    colors.OKCYAN,
+                    num_unknown,
+                    colors.ENDC))
+
                 unclf1_fh.close()
                 unclf2_fh.close()
 
@@ -258,6 +255,7 @@ class Predictor:
                     colors.ENDC))
 
                 rrna_fh = open_for_write(self.rrna[0])
+                num_rrna = 0
 
             self.logger.info('Writing output non-rRNA sequences into file: {}{}{}'.format(
                 colors.OKBLUE,
@@ -269,7 +267,7 @@ class Predictor:
             proc = mp.Process(target=self.listener, args=(q_pbar,))
             proc.start()
 
-            for i in range(num_workers):
+            for _i in range(num_workers):
                 p = mp.Process(target=self.classify_reads,
                                args=(work, results, q_pbar))
                 p.start()
@@ -290,7 +288,6 @@ class Predictor:
                 colors.OKBLUE,
                 colors.ENDC))
 
-            num_rrna = 0
             for r_dict in results:
 
                 if r_dict[0]:
@@ -298,14 +295,13 @@ class Predictor:
                 if self.rrna is not None and r_dict[1]:
                     rrna_fh.write('\n'.join(r_dict[1]) + '\n')
                     num_rrna += len(r_dict[1])
-
-            self.logger.info('Done! Detected {}{}{}{} rRNA sequences'.format(
-                colors.BOLD,
-                colors.OKCYAN,
-                num_rrna,
-                colors.ENDC
-            ))
             if self.rrna is not None:
+                self.logger.info('Done! Detected {}{}{}{} rRNA sequences'.format(
+                    colors.BOLD,
+                    colors.OKCYAN,
+                    num_rrna,
+                    colors.ENDC
+                ))
                 rrna_fh.close()
             norrna_fh.close()
 
@@ -324,6 +320,16 @@ class Predictor:
 
     @staticmethod
     def separate_reads(reads, labels):
+        """Split the input reads based on the predicted label
+
+        Args:
+            reads (list): batch of input reads 
+            labels (list): list of predicted labels for the input reads
+
+        Returns:
+            dict: dict with key being label and value being read
+        """
+
         reads_dict = defaultdict(list)
         for read, label in zip(reads, labels):
 
@@ -382,6 +388,13 @@ class Predictor:
         return r1_dict, r2_dict
 
     def classify_reads(self, chunk, out_list, q_pbar):
+        """Classify reads chunk
+
+        Args:
+            chunk (list): chunk of reads
+            out_list (list(dict)): list of separated {label: read} dicts
+            q_pbar (mp queue): queue for progressbar signal
+        """
         while True:
             reads = chunk.get()
             if reads == None:
@@ -429,6 +442,40 @@ class Predictor:
             pbar.update()
 
 
+def open_for_write(read_file):
+    """Open a plain text or gzipped text file for writing according to the file name extension
+
+    Args:
+        read_file (str): the file name to write
+
+    Returns:
+        file handle: the opened file handle for writing
+    """
+    if read_file.endswith('gz'):
+        return gzip.open(read_file, mode='wt', compresslevel=5)
+    else:
+        return open(read_file, 'w')
+
+
+class colors:
+    """
+    Define the color of logger text
+    """
+
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    OKYELLOW = '\033[33m'
+    OKMAG = '\033[35m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+    UPDATE = '\033[F'
+
+
 if __name__ == '__main__':
     args = argparse.ArgumentParser(
         description='rRNA sequence detector', formatter_class=RawTextHelpFormatter)
@@ -451,12 +498,12 @@ both: both non-rRNA and rRNA prediction with high confidence;
 none: give label based on the mean probability of read pair.
       (Only applicable for paired end reads, discard the read pair when their predicitons are discordant)''')
 
-    args.add_argument('-t', '--threads', default=10, type=int,
+    args.add_argument('-t', '--threads', default=20, type=int,
                       help='number of threads to use. (default: 10)')
 
-    args.add_argument('--chunk_size', default=256, type=int,
-                      help='chunk_size * threads reads to process per thread.(default: 256) \n{}.'.format(
-                          'When chunk_size=1024 and threads=10, each process will load 1024 reads, in total consumming 10G memory'
+    args.add_argument('--chunk_size', default=1024, type=int,
+                      help='chunk_size * threads reads to process per thread.(default: 1024) \n{}.'.format(
+                          'When chunk_size=1024 and threads=20, each process will load 1024 reads, in total consumming ~20G memory'
                       ))
 
     args.add_argument('-v', '--version', action='version',

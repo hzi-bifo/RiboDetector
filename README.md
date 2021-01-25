@@ -114,7 +114,7 @@ We benchmarked five different rRNA detection methods including RiboDetector on 8
 
 ![Benchmarking the performance and runtime of different rRNA sequences detection methods](./benchmarks/benchmarks.jpg)
 
-In the figure A and C, the definiation of *FPNR* and *FNR* are:
+In the above figures, the definitions of *FPNR* and *FNR* are:
 
 <img src="https://render.githubusercontent.com/render/math?math=\large FPNR=100\frac{false \:predictions}{total \: sequences}">
 
