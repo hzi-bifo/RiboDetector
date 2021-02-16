@@ -2,7 +2,9 @@
 
 ### About `Ribodetector`
 
-`RiboDetector` is a tool developed to accurately yet rapidly detect and remove rRNA sequences from metagenomeic, metatranscriptomic, and ncRNA sequencing data. It was developed based on LSTM and optimized for both GPU and CPU to achieve a **10** times on CPU and **50** times on a consumer GPU faster runtime compared to the current state-of-the-art tools. Moreover, it is way more accurate than any other tools, by having ~**10** times less false classifications. And has very low level of bias towards any functional groups evaluated with GO term enrichment analysis on false positives. Besides, the size of RiboDetector is only few MBs which is over ~**1000** times smaller than commanly used tools.
+`RiboDetector` is a software developed to accurately yet rapidly detect and remove rRNA sequences from metagenomeic, metatranscriptomic, and ncRNA sequencing data. It was developed based on LSTMs and optimized for both GPU and CPU usage to achieve a **10** times on CPU and **50** times on a consumer GPU faster runtime compared to the current state-of-the-art software. Moreover, it is very accurate, with ~**10** times fewer false classifications. Finally, it has a low level of bias towards any GO functional groups. 
+
+% Besides, the size of RiboDetector is only few MBs which is over ~**1000** times smaller than commanly used tools.
 
 ### Prerequirements
 
