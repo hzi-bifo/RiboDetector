@@ -13,7 +13,7 @@ conda create -n ribodetector python=3.8
 conda activate ribodetector
 pip install tqdm numpy pandas biopython torch torchvision onnxruntime
 ```
-**Note**: To instal torch compatible with your CUDA version, please fellow this instruction:
+**Note**: To install torch compatible with your CUDA version, please fellow this instruction:
 https://pytorch.org/get-started/locally/
 
 ### Usage
@@ -120,7 +120,7 @@ In the above figures, the definitions of *FPNR* and *FNR* are:
 
 <img src="https://render.githubusercontent.com/render/math?math=\large FNR=100\frac{false \:negatives}{total \:positives}">
 
-Figure C shows RiboDetector has remarkble generalization ability and is capable of detecting novel rRNA sequences.
+Figure C shows RiboDetector has a very high generalization ability and is capable of detecting novel rRNA sequences.
 
 ### Acknowledgements
 The scripts from the `base` dir were from the template [pytorch-template
