@@ -4,7 +4,6 @@
 
 `RiboDetector` is a software developed to accurately yet rapidly detect and remove rRNA sequences from metagenomeic, metatranscriptomic, and ncRNA sequencing data. It was developed based on LSTMs and optimized for both GPU and CPU usage to achieve a **10** times on CPU and **50** times on a consumer GPU faster runtime compared to the current state-of-the-art software. Moreover, it is very accurate, with ~**10** times fewer false classifications. Finally, it has a low level of bias towards any GO functional groups. 
 
-% Besides, the size of RiboDetector is only few MBs which is over ~**1000** times smaller than commanly used tools.
 
 ### Prerequirements
 
@@ -122,7 +121,7 @@ In the above figures, the definitions of *FPNR* and *FNR* are:
 
 <img src="https://render.githubusercontent.com/render/math?math=\large FNR=100\frac{false \:negatives}{total \:positives}">
 
-Figure C shows RiboDetector has a very high generalization ability and is capable of detecting novel rRNA sequences.
+RiboDetector has a very high generalization ability and is capable of detecting novel rRNA sequences (Fig. C).
 
 ### Acknowledgements
 The scripts from the `base` dir were from the template [pytorch-template
