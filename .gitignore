@@ -1,0 +1,7 @@
+.*
+bak
+*.swp
+*.pyc
+__pycache__
+tmux*.log
+!.gitignore
