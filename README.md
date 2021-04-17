@@ -17,6 +17,12 @@ pip install tqdm numpy pandas biopython torch torchvision onnxruntime
 **Note**: To install torch compatible with your CUDA version, please fellow this instruction:
 https://pytorch.org/get-started/locally/
 
+### Installation
+
+```shell
+git clone https://github.com/hzi-bifo/RiboDetector.git
+```
+
 ### Usage
 
 #### GPU mode
