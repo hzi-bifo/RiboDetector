@@ -510,6 +510,15 @@ class Predictor:
             self.read_collate_fn = partial(
                 unlabeled_read_collate_fn, max_len=self.len, pack_seq=self.pack_seq)
 
+        self.logger.info('Choose batch size: {}{}{}{} based on the given GPU RAM size {}GB and max read length {}'.format(
+            colors.BOLD,
+            colors.OKCYAN,
+            self.batch_size,
+            colors.ENDC,
+            self.args.memory,
+            self.len
+        ))
+
         if self.chunk_size is None:
             self.run()
         else:
