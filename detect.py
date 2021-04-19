@@ -500,11 +500,13 @@ class Predictor:
         self.is_paired = (num_inputs == 2)
 
         if self.is_paired:
-            self.batch_size = math.floor(200*(self.args.memory - 2) / (self.len*4)) * 2 * 1024 
+            self.batch_size = math.floor(
+                200 * math.floor(0.9 * self.args.memory) / (4 * self.len)) * 2 * 1024
             self.read_collate_fn = partial(
                 unlabeled_paired_read_collate_fn, max_len=self.len, pack_seq=self.pack_seq)
         else:
-            self.batch_size = math.floor(200*(self.args.memory - 2) / (self.len*2)) * 2 * 1024 
+            self.batch_size = math.floor(
+                200 * math.floor(0.9 * self.args.memory) / (self.len * 2)) * 2 * 1024
             self.read_collate_fn = partial(
                 unlabeled_read_collate_fn, max_len=self.len, pack_seq=self.pack_seq)
 
