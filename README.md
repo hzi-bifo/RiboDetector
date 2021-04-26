@@ -68,7 +68,9 @@ optional arguments:
 #### CPU mode
 
 ```shell
-usage: detect_cpu.py [-h] [-c CONFIG] -l LEN -i [INPUT [INPUT ...]] -o [OUTPUT [OUTPUT ...]] [-r [RRNA [RRNA ...]]] [-e {rrna,norrna,both,none}] [-t THREADS] [--chunk_size CHUNK_SIZE] [-v]
+usage: detect_cpu.py [-h] [-c CONFIG] -l LEN -i [INPUT [INPUT ...]] -o [OUTPUT [OUTPUT ...]] \
+                      [-r [RRNA [RRNA ...]]] [-e {rrna,norrna,both,none}] [-t THREADS] \
+                      [--chunk_size CHUNK_SIZE] [-v]
 
 rRNA sequence detector
 
