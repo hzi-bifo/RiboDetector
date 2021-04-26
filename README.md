@@ -42,7 +42,7 @@ optional arguments:
                         Indices of GPUs to enable. Quotated comma-separated device ID numbers. (default: all)
   -l LEN, --len LEN     Sequencing read length, should be not smaller than 50.
   -i [INPUT [INPUT ...]], --input [INPUT [INPUT ...]]
-                        Path of input sequence files (fasta and fastq), the second file will be considered as second end if two files given.
+                        Path of input sequence files (fasta and fastq, also supports gz compressed file), the second file will be considered as second end if two files given.
   -o [OUTPUT [OUTPUT ...]], --output [OUTPUT [OUTPUT ...]]
                         Path of the output sequence files after rRNAs removal (same number of files as input).
                         (Note: 2 times slower to write gz files)
@@ -81,7 +81,7 @@ optional arguments:
                         Path of config file
   -l LEN, --len LEN     Sequencing read length, should be not smaller than 50.
   -i [INPUT [INPUT ...]], --input [INPUT [INPUT ...]]
-                        Path of input sequence files (fasta and fastq), the second file will be considered as second end if two files given.
+                        Path of input sequence files (fasta and fastq files, also supports gz compressed file), the second file will be considered as second end if two files given.
   -o [OUTPUT [OUTPUT ...]], --output [OUTPUT [OUTPUT ...]]
                         Path of the output sequence files after rRNAs removal (same number of files as input).
                         (Note: 2 times slower to write gz files)
