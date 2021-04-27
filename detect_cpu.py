@@ -53,11 +53,12 @@ class Predictor:
         self.len = self.args.len
 
         if self.len < 40:
-            self.logger.error('{}Sequence length is too short to classify!{}'.format(
-                colors.FAIL,
-                colors.ENDC))
-            raise RuntimeError(
-                "Sequence length must be set to larger than 40.")
+#             self.logger.error('{}Sequence length is too short to classify!{}'.format(
+#                 colors.FAIL,
+#                 colors.ENDC))
+#             raise RuntimeError(
+#                 "Sequence length must be set to larger than 40.")
+            self.logger.info('The accuracy will be low with reads shorter than 40.')
 
         # High recall model if ensure non-rRNA
         if self.args.ensure == 'norrna':
