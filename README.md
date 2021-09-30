@@ -7,7 +7,7 @@
 
 ### Prerequirements
 
-To be able to use `RiboDetector`, all you need to do is to install `Python 3.8` (make sure you have version `3.8` because `3.7` cannot serialize a string larger than 4GiB) with `conda` and Python libraries: `tqdm`, `numpy`, `pandas`, `biopython`, `pandas`, `torch` or `onnxruntime` (if run on CPU mode) using `pip`, for example:
+To be able to use `RiboDetector`, all you need to do is to install `Python 3.8` (make sure you have version `3.8` because `3.7` cannot serialize a string larger than 4GiB) with `conda` and Python libraries: `tqdm`, `numpy`, `biopython`, `pandas`, `torch` or `onnxruntime` (if run on CPU mode) using `pip`, for example:
 
 ```shell
 conda create -n ribodetector python=3.8
