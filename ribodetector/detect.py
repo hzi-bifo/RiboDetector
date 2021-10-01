@@ -16,15 +16,15 @@ import argparse
 
 from tqdm import tqdm
 from functools import partial
-import model.model as module_arch
+from ribodetector.model import model as module_arch
 from collections import defaultdict
-from parse_config import ConfigParser
+from ribodetector.parse_config import ConfigParser
 from torch.multiprocessing import Pool
 from torch.utils.data import DataLoader
-from utils.__version__ import __version__
+from ribodetector import __version__
 from argparse import RawTextHelpFormatter
-import data_loader.seq_encoder as SeqEncoder
-from data_loader.dataset import SeqData, PairedReadData
+from ribodetector.data_loader import seq_encoder as SeqEncoder
+from ribodetector.data_loader.dataset import SeqData, PairedReadData
 from torch.nn.utils.rnn import pad_sequence, pack_sequence
 
 # Get the directory of the program
@@ -52,13 +52,14 @@ class Predictor:
         self.len = self.args.len
 
         if self.len < 40:
-#             self.logger.error('{}Sequence length is too short to classify!{}'.format(
-#                 colors.FAIL,
-#                 colors.ENDC))
-#             raise RuntimeError(
-#                 "Sequence length must be set to larger than 40.")
-            
-            self.logger.info('The accuracy will be low with reads shorter than 40.')
+            #             self.logger.error('{}Sequence length is too short to classify!{}'.format(
+            #                 colors.FAIL,
+            #                 colors.ENDC))
+            #             raise RuntimeError(
+            #                 "Sequence length must be set to larger than 40.")
+
+            self.logger.info(
+                'The accuracy will be low with reads shorter than 40.')
 
         # High recall model if ensure non-rRNA
         if self.args.ensure == 'norrna':
@@ -504,14 +505,16 @@ class Predictor:
         if self.is_paired:
             # self.batch_size = math.floor(
             #     200 * math.floor(0.9 * self.args.memory) / (4 * self.len)) * 2 * 1024
-            batch_size_ = ((self.args.memory - 2)*1024*1024)/(2*self.len*6.4)
+            batch_size_ = ((self.args.memory - 2) * 1024 *
+                           1024) / (2 * self.len * 6.4)
             self.batch_size = 2 ** math.floor(math.log2(batch_size_))
             self.read_collate_fn = partial(
                 unlabeled_paired_read_collate_fn, max_len=self.len, pack_seq=self.pack_seq)
         else:
             # self.batch_size = math.floor(
             #     200 * math.floor(0.9 * self.args.memory) / (self.len * 2)) * 2 * 1024
-            batch_size_ = ((self.args.memory - 2)*1024*1024)/(self.len*6.4)
+            batch_size_ = ((self.args.memory - 2) *
+                           1024 * 1024) / (self.len * 6.4)
             self.batch_size = 2 ** math.floor(math.log2(batch_size_))
             self.read_collate_fn = partial(
                 unlabeled_read_collate_fn, max_len=self.len, pack_seq=self.pack_seq)
@@ -707,7 +710,7 @@ class colors:
     UPDATE = '\033[F'
 
 
-if __name__ == '__main__':
+def main():
     args = argparse.ArgumentParser(
         description='rRNA sequence detector', formatter_class=RawTextHelpFormatter)
     args.add_argument('-c', '--config', default=None, type=str,
@@ -752,3 +755,7 @@ none: give label based on the mean probability of read pair.
     seq_pred = Predictor(config, args)
     seq_pred.load_model()
     seq_pred.detect()
+
+
+if __name__ == '__main__':
+    main()

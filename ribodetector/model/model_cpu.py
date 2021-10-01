@@ -2,7 +2,7 @@ import torch
 from torch import jit
 import torch.nn as nn
 from torch import Tensor
-from base import BaseModel
+from ribodetector.base import BaseModel
 
 
 class SeqModel(BaseModel):

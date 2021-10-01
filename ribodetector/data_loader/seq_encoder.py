@@ -5,7 +5,7 @@ from pathlib import Path
 from functools import partial
 from itertools import islice
 from mimetypes import guess_type
-from data_loader.fastx_parser import seq_parser
+from ribodetector.data_loader.fastx_parser import seq_parser
 
 
 BASE_DICT = {"A": (1, 0, 0, 0),

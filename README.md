@@ -7,20 +7,23 @@
 
 ### Prerequirements
 
-To be able to use `RiboDetector`, all you need to do is to install `Python 3.8` (make sure you have version `3.8` because `3.7` cannot serialize a string larger than 4GiB) with `conda` and Python libraries: `tqdm`, `numpy`, `biopython`, `pandas`, `torch` or `onnxruntime` (if run on CPU mode) using `pip`, for example:
+To be able to use `RiboDetector`, all you need to do is to install `Python v3.8` (make sure you have version `3.8` because `3.7` cannot serialize a string larger than 4GiB) with `conda`:
 
 ```shell
 conda create -n ribodetector python=3.8
 conda activate ribodetector
-pip install tqdm numpy pandas biopython torch torchvision onnxruntime
 ```
-**Note**: To install torch compatible with your CUDA version, please fellow this instruction:
-https://pytorch.org/get-started/locally/
+
+**Note**: To install `torch` compatible with your CUDA version, please fellow this instruction:
+https://pytorch.org/get-started/locally/. Our code was tested with `torch v1.7` and `v1.7.1`.
 
 ### Installation
 
 ```shell
+
 git clone https://github.com/hzi-bifo/RiboDetector.git
+cd RiboDetector
+python setup.py install
 ```
 
 ### Usage
@@ -28,10 +31,6 @@ git clone https://github.com/hzi-bifo/RiboDetector.git
 #### GPU mode
 
 ```shell
-usage: detect.py [-h] [-c CONFIG] [-d DEVICEID] -l LEN -i [INPUT [INPUT ...]] -o [OUTPUT [OUTPUT ...]] \
-                  [-r [RRNA [RRNA ...]]] [-e {rrna,norrna,both,none}] [-t THREADS] [-m MEMORY] \
-                  [--chunk_size CHUNK_SIZE] [-v]
-
 rRNA sequence detector
 
 optional arguments:
@@ -42,7 +41,7 @@ optional arguments:
                         Indices of GPUs to enable. Quotated comma-separated device ID numbers. (default: all)
   -l LEN, --len LEN     Sequencing read length, should be not smaller than 50.
   -i [INPUT [INPUT ...]], --input [INPUT [INPUT ...]]
-                        Path of input sequence files (fasta and fastq, also supports gz compressed file), the second file will be considered as second end if two files given.
+                        Path of input sequence files (fasta and fastq), the second file will be considered as second end if two files given.
   -o [OUTPUT [OUTPUT ...]], --output [OUTPUT [OUTPUT ...]]
                         Path of the output sequence files after rRNAs removal (same number of files as input).
                         (Note: 2 times slower to write gz files)
@@ -58,7 +57,7 @@ optional arguments:
   -t THREADS, --threads THREADS
                         number of threads to use. (default: 10)
   -m MEMORY, --memory MEMORY
-                        amout (GB) of GPU RAM. (default: 12)
+                        amount (GB) of GPU RAM. (default: 12)
   --chunk_size CHUNK_SIZE
                         Use this parameter when having low memory. Parsing the file in chunks.
                         Not needed when free RAM >=5 * your_file_size (uncompressed, sum of paired ends).
@@ -69,9 +68,7 @@ optional arguments:
 #### CPU mode
 
 ```shell
-usage: detect_cpu.py [-h] [-c CONFIG] -l LEN -i [INPUT [INPUT ...]] -o [OUTPUT [OUTPUT ...]] \
-                      [-r [RRNA [RRNA ...]]] [-e {rrna,norrna,both,none}] [-t THREADS] \
-                      [--chunk_size CHUNK_SIZE] [-v]
+usage: ribodetector_cpu [-h] [-c CONFIG] -l LEN -i [INPUT [INPUT ...]] -o [OUTPUT [OUTPUT ...]] [-r [RRNA [RRNA ...]]] [-e {rrna,norrna,both,none}] [-t THREADS] [--chunk_size CHUNK_SIZE] [-v]
 
 rRNA sequence detector
 
@@ -81,7 +78,7 @@ optional arguments:
                         Path of config file
   -l LEN, --len LEN     Sequencing read length, should be not smaller than 50.
   -i [INPUT [INPUT ...]], --input [INPUT [INPUT ...]]
-                        Path of input sequence files (fasta and fastq files, also supports gz compressed file), the second file will be considered as second end if two files given.
+                        Path of input sequence files (fasta and fastq), the second file will be considered as second end if two files given.
   -o [OUTPUT [OUTPUT ...]], --output [OUTPUT [OUTPUT ...]]
                         Path of the output sequence files after rRNAs removal (same number of files as input).
                         (Note: 2 times slower to write gz files)
@@ -97,8 +94,8 @@ optional arguments:
   -t THREADS, --threads THREADS
                         number of threads to use. (default: 10)
   --chunk_size CHUNK_SIZE
-                        chunk_size * threads reads to process per thread.(default: 256)
-                        When chunk_size=1024 and threads=10, each process will load 1024 reads, in total consumming 10G memory.
+                        chunk_size * threads reads to process per thread.(default: 1024)
+                        When chunk_size=1024 and threads=20, each process will load 1024 reads, in total consumming ~20G memory.
   -v, --version         show program's version number and exit
 ```
 

@@ -13,8 +13,8 @@ import torch
 import warnings
 import numpy as np
 from os import path
-import model.model_cpu as module_arch
-from parse_config import ConfigParser
+from ribodetector.model import model_cpu as module_arch
+from ribodetector.parse_config import ConfigParser
 
 
 @click.command()

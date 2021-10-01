@@ -14,7 +14,7 @@
         }
     },
     "state_file": {
-        "mcc": "model/data/ribodetector_600k_variable_len70_101_epoch47.pth",
-        "recall": "model/data/ribodetector_600k_variable_len70_101_epoch47.pth"
+        "mcc": "data/ribodetector_600k_variable_len70_101_epoch47.pth",
+        "recall": "data/ribodetector_600k_variable_len70_101_epoch47.pth"
     }
 }

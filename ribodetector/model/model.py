@@ -3,7 +3,7 @@ from torch import jit
 import torch.nn as nn
 from typing import Tuple
 from torch import Tensor
-from base import BaseModel
+from ribodetector.base import BaseModel
 from torch.nn.utils.rnn import PackedSequence
 
 

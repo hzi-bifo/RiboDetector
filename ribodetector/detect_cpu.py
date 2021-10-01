@@ -18,11 +18,11 @@ import numpy as np
 from tqdm import tqdm
 import multiprocessing as mp
 from collections import defaultdict
-from parse_config import ConfigParser
-from utils.__version__ import __version__
+from ribodetector import __version__
 
 from argparse import RawTextHelpFormatter
-import data_loader.seq_encoder as SeqEncoder
+from ribodetector.parse_config import ConfigParser
+import ribodetector.data_loader.seq_encoder as SeqEncoder
 
 # Get the directory of the program
 cd = os.path.dirname(os.path.abspath(__file__))
@@ -53,12 +53,13 @@ class Predictor:
         self.len = self.args.len
 
         if self.len < 40:
-#             self.logger.error('{}Sequence length is too short to classify!{}'.format(
-#                 colors.FAIL,
-#                 colors.ENDC))
-#             raise RuntimeError(
-#                 "Sequence length must be set to larger than 40.")
-            self.logger.info('The accuracy will be low with reads shorter than 40.')
+            #             self.logger.error('{}Sequence length is too short to classify!{}'.format(
+            #                 colors.FAIL,
+            #                 colors.ENDC))
+            #             raise RuntimeError(
+            #                 "Sequence length must be set to larger than 40.")
+            self.logger.info(
+                'The accuracy will be low with reads shorter than 40.')
 
         # High recall model if ensure non-rRNA
         if self.args.ensure == 'norrna':
@@ -477,7 +478,7 @@ class colors:
     UPDATE = '\033[F'
 
 
-if __name__ == '__main__':
+def main():
     args = argparse.ArgumentParser(
         description='rRNA sequence detector', formatter_class=RawTextHelpFormatter)
     args.add_argument('-c', '--config', default=None, type=str,
@@ -524,3 +525,7 @@ none: give label based on the mean probability of read pair.
     seq_pred = Predictor(config, args)
     seq_pred.load_model()
     seq_pred.run()
+
+
+if __name__ == '__main__':
+    main()

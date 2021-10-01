@@ -5,3 +5,6 @@ bak
 __pycache__
 tmux*.log
 !.gitignore
+build
+dist
+*.egg-info

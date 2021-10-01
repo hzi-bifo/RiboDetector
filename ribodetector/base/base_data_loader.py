@@ -1,8 +1,8 @@
+import torch
 import numpy as np
 from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import default_collate
 from torch.utils.data.sampler import SubsetRandomSampler
-import torch
 
 
 class BaseDataLoader(DataLoader):
@@ -17,7 +17,8 @@ class BaseDataLoader(DataLoader):
         self.batch_idx = 0
         self.n_samples = len(dataset)
 
-        self.sampler, self.valid_sampler = self._split_sampler(self.validation_split)
+        self.sampler, self.valid_sampler = self._split_sampler(
+            self.validation_split)
 
         self.init_kwargs = {
             'dataset': dataset,
