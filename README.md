@@ -31,6 +31,9 @@ python setup.py install
 #### GPU mode
 
 ```shell
+usage: ribodetector [-h] [-c CONFIG] [-d DEVICEID] -l LEN -i [INPUT [INPUT ...]] -o [OUTPUT [OUTPUT ...]] [-r [RRNA [RRNA ...]]] [-e {rrna,norrna,both,none}] [-t THREADS] [-m MEMORY]
+                    [--chunk_size CHUNK_SIZE] [-v]
+
 rRNA sequence detector
 
 optional arguments:
