@@ -19,7 +19,7 @@ setup(
     name="ribodetector",
     version="0.2.2",
     author="Z-L Deng",
-    author_email="dawnmsg(at)gmail.com",
+    author_email="dawnmsg@gmail.com",
     description="Accurate and rapid RiboRNA sequences Detector based on deep learning.",
     license="GPL-3 License",
     long_description=long_description,
@@ -32,11 +32,10 @@ setup(
 
     classifiers=[
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
-        "Topic :: Scientific/Engineering :: Bioinformatics",
+        "Topic :: Scientific/Engineering :: Bio-Informatics",
         "Intended Audience :: Science/Research",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: GPL-3 License",
         "Operating System :: OS Independent",
     ],
     entry_points={
@@ -45,6 +44,6 @@ setup(
             'ribodetector_cpu = ribodetector.detect_cpu:main',
         ]
     },
-    zip_safe=False,
+    zip_safe=True,
     install_requires=required
 )

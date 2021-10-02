@@ -20,7 +20,6 @@ https://pytorch.org/get-started/locally/. Our code was tested with `torch v1.7` 
 ### Installation
 
 ```shell
-
 git clone https://github.com/hzi-bifo/RiboDetector.git
 cd RiboDetector
 python setup.py install
@@ -31,6 +30,7 @@ python setup.py install
 #### GPU mode
 
 ```shell
+
 usage: ribodetector [-h] [-c CONFIG] [-d DEVICEID] -l LEN -i [INPUT [INPUT ...]] -o [OUTPUT [OUTPUT ...]] [-r [RRNA [RRNA ...]]] [-e {rrna,norrna,both,none}] [-t THREADS] [-m MEMORY]
                     [--chunk_size CHUNK_SIZE] [-v]
 
@@ -66,11 +66,13 @@ optional arguments:
                         Not needed when free RAM >=5 * your_file_size (uncompressed, sum of paired ends).
                         When chunk_size=256, memory=16 it will load 256 * 16 * 1024 reads each chunk (use ~20 GB for 100bp paired end).
   -v, --version         show program's version number and exit
+  
 ```
 
 #### CPU mode
 
 ```shell
+
 usage: ribodetector_cpu [-h] [-c CONFIG] -l LEN -i [INPUT [INPUT ...]] -o [OUTPUT [OUTPUT ...]] [-r [RRNA [RRNA ...]]] [-e {rrna,norrna,both,none}] [-t THREADS] [--chunk_size CHUNK_SIZE] [-v]
 
 rRNA sequence detector
@@ -100,9 +102,10 @@ optional arguments:
                         chunk_size * threads reads to process per thread.(default: 1024)
                         When chunk_size=1024 and threads=20, each process will load 1024 reads, in total consumming ~20G memory.
   -v, --version         show program's version number and exit
+  
 ```
 
-### Benchmarks
+<!-- ### Benchmarks
 
 We benchmarked five different rRNA detection methods including RiboDetector on 8 benchmarking datasets as following: 
 
@@ -130,7 +133,7 @@ In the above figures, the definitions of *FPNR* and *FNR* are:
 
 <img src="https://render.githubusercontent.com/render/math?math=\large FNR=100\frac{false \:negatives}{total \:positives}">
 
-RiboDetector has a very high generalization ability and is capable of detecting novel rRNA sequences (Fig. C).
+RiboDetector has a very high generalization ability and is capable of detecting novel rRNA sequences (Fig. C). -->
 
 ### Acknowledgements
 The scripts from the `base` dir were from the template [pytorch-template
