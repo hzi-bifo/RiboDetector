@@ -7,6 +7,8 @@
 
 ### Prerequirements
 
+#### 1. Create `conda` env and install `Python v3.8`
+
 To be able to use `RiboDetector`, all you need to do is to install `Python v3.8` (make sure you have version `3.8` because `3.7` cannot serialize a string larger than 4GiB) with `conda`:
 
 ```shell
@@ -14,8 +16,10 @@ conda create -n ribodetector python=3.8
 conda activate ribodetector
 ```
 
-**Note**: To install `torch` compatible with your CUDA version, please fellow this instruction:
-https://pytorch.org/get-started/locally/. Our code was tested with `torch v1.7` and `v1.7.1`.
+#### 2. Install `pytorch`
+
+To install `pytorch` compatible with your CUDA version, please fellow this instruction:
+https://pytorch.org/get-started/locally/. Our code was tested with `pytorch v1.7` and `v1.7.1`.
 
 ### Installation
 
