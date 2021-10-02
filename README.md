@@ -20,9 +20,7 @@ https://pytorch.org/get-started/locally/. Our code was tested with `torch v1.7` 
 ### Installation
 
 ```shell
-git clone https://github.com/hzi-bifo/RiboDetector.git
-cd RiboDetector
-python setup.py install
+pip install ribodetector
 ```
 
 ### Usage

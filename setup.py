@@ -17,7 +17,7 @@ required = [
 
 setup(
     name="ribodetector",
-    version="0.2.2",
+    version="0.2.3",
     author="Z-L Deng",
     author_email="dawnmsg@gmail.com",
     description="Accurate and rapid RiboRNA sequences Detector based on deep learning.",
