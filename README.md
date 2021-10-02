@@ -30,9 +30,9 @@ python setup.py install
 #### GPU mode
 
 ```shell
-
-usage: ribodetector [-h] [-c CONFIG] [-d DEVICEID] -l LEN -i [INPUT [INPUT ...]] -o [OUTPUT [OUTPUT ...]] [-r [RRNA [RRNA ...]]] [-e {rrna,norrna,both,none}] [-t THREADS] [-m MEMORY]
-                    [--chunk_size CHUNK_SIZE] [-v]
+usage: ribodetector [-h] [-c CONFIG] [-d DEVICEID] -l LEN -i [INPUT [INPUT ...]]
+ -o [OUTPUT [OUTPUT ...]] [-r [RRNA [RRNA ...]]] [-e {rrna,norrna,both,none}] 
+ [-t THREADS] [-m MEMORY] [--chunk_size CHUNK_SIZE] [-v]
 
 rRNA sequence detector
 
@@ -41,39 +41,49 @@ optional arguments:
   -c CONFIG, --config CONFIG
                         Path of config file
   -d DEVICEID, --deviceid DEVICEID
-                        Indices of GPUs to enable. Quotated comma-separated device ID numbers. (default: all)
+                        Indices of GPUs to enable. Quotated comma-separated device ID 
+                        numbers. (default: all)
   -l LEN, --len LEN     Sequencing read length, should be not smaller than 50.
   -i [INPUT [INPUT ...]], --input [INPUT [INPUT ...]]
-                        Path of input sequence files (fasta and fastq), the second file will be considered as second end if two files given.
+                        Path of input sequence files (fasta and fastq), the second 
+                        file will be considered as second end if two files given.
   -o [OUTPUT [OUTPUT ...]], --output [OUTPUT [OUTPUT ...]]
-                        Path of the output sequence files after rRNAs removal (same number of files as input).
-                        (Note: 2 times slower to write gz files)
+                        Path of the output sequence files after rRNAs removal (same 
+                        number of files as input). (Note: 2 times slower to write gz 
+                        files)
   -r [RRNA [RRNA ...]], --rrna [RRNA [RRNA ...]]
-                        Path of the output sequence file of detected rRNAs (same number of files as input)
+                        Path of the output sequence file of detected rRNAs (same 
+                        number of files as input)
   -e {rrna,norrna,both,none}, --ensure {rrna,norrna,both,none}
                         Only output certain sequences with high confidence
-                        norrna: output non-rRNAs with high confidence, remove as many rRNAs as possible;
+                        norrna: output non-rRNAs with high confidence, remove as many 
+                        rRNAs as possible;
                         rrna: vice versa, output rRNAs with high confidence;
                         both: both non-rRNA and rRNA prediction with high confidence;
                         none: give label based on the mean probability of read pair.
-                              (Only applicable for paired end reads, discard the read pair when their predicitons are discordant)
+                          (Only applicable for paired end reads, discard the read 
+                           pair when their predicitons are discordant)
   -t THREADS, --threads THREADS
                         number of threads to use. (default: 10)
   -m MEMORY, --memory MEMORY
                         amount (GB) of GPU RAM. (default: 12)
   --chunk_size CHUNK_SIZE
-                        Use this parameter when having low memory. Parsing the file in chunks.
-                        Not needed when free RAM >=5 * your_file_size (uncompressed, sum of paired ends).
-                        When chunk_size=256, memory=16 it will load 256 * 16 * 1024 reads each chunk (use ~20 GB for 100bp paired end).
+                        Use this parameter when having low memory. Parsing the file in 
+                        chunks.
+                        Not needed when free RAM >=5 * your_file_size (uncompressed, 
+                        sum of paired ends).
+                        When chunk_size=256, memory=16 it will load 256 * 16 * 1024 
+                        reads each chunk (use ~20 GB for 100bp paired end).
   -v, --version         show program's version number and exit
-  
 ```
 
 #### CPU mode
 
 ```shell
 
-usage: ribodetector_cpu [-h] [-c CONFIG] -l LEN -i [INPUT [INPUT ...]] -o [OUTPUT [OUTPUT ...]] [-r [RRNA [RRNA ...]]] [-e {rrna,norrna,both,none}] [-t THREADS] [--chunk_size CHUNK_SIZE] [-v]
+usage: ribodetector_cpu [-h] [-c CONFIG] -l LEN -i [INPUT [INPUT ...]] 
+-o [OUTPUT [OUTPUT ...]] [-r [RRNA [RRNA ...]]] [-e {rrna,norrna,both,none}] 
+[-t THREADS] [--chunk_size CHUNK_SIZE] [-v]
 
 rRNA sequence detector
 
@@ -83,26 +93,32 @@ optional arguments:
                         Path of config file
   -l LEN, --len LEN     Sequencing read length, should be not smaller than 50.
   -i [INPUT [INPUT ...]], --input [INPUT [INPUT ...]]
-                        Path of input sequence files (fasta and fastq), the second file will be considered as second end if two files given.
+                        Path of input sequence files (fasta and fastq), the second 
+                        file will be considered as second end if two files given.
   -o [OUTPUT [OUTPUT ...]], --output [OUTPUT [OUTPUT ...]]
-                        Path of the output sequence files after rRNAs removal (same number of files as input).
+                        Path of the output sequence files after rRNAs removal (same 
+                        number of files as input).
                         (Note: 2 times slower to write gz files)
   -r [RRNA [RRNA ...]], --rrna [RRNA [RRNA ...]]
-                        Path of the output sequence file of detected rRNAs (same number of files as input)
+                        Path of the output sequence file of detected rRNAs (same 
+                        number of files as input)
   -e {rrna,norrna,both,none}, --ensure {rrna,norrna,both,none}
                         Only output certain sequences with high confidence
-                        norrna: output non-rRNAs with high confidence, remove as many rRNAs as possible;
+                        norrna: output non-rRNAs with high confidence, remove as many 
+                        rRNAs as possible;
                         rrna: vice versa, output rRNAs with high confidence;
                         both: both non-rRNA and rRNA prediction with high confidence;
                         none: give label based on the mean probability of read pair.
-                              (Only applicable for paired end reads, discard the read pair when their predicitons are discordant)
+                         (Only applicable for paired end reads, discard the read 
+                          pair when their predicitons are discordant)
   -t THREADS, --threads THREADS
                         number of threads to use. (default: 10)
   --chunk_size CHUNK_SIZE
-                        chunk_size * threads reads to process per thread.(default: 1024)
-                        When chunk_size=1024 and threads=20, each process will load 1024 reads, in total consumming ~20G memory.
+                        chunk_size * threads reads to process per thread.(default: 
+                        1024)
+                        When chunk_size=1024 and threads=20, each process will load 
+                        1024 reads, in total consumming ~20G memory.
   -v, --version         show program's version number and exit
-  
 ```
 
 <!-- ### Benchmarks
