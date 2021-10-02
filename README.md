@@ -31,8 +31,8 @@ python setup.py install
 
 ```shell
 usage: ribodetector [-h] [-c CONFIG] [-d DEVICEID] -l LEN -i [INPUT [INPUT ...]]
- -o [OUTPUT [OUTPUT ...]] [-r [RRNA [RRNA ...]]] [-e {rrna,norrna,both,none}] 
- [-t THREADS] [-m MEMORY] [--chunk_size CHUNK_SIZE] [-v]
+  -o [OUTPUT [OUTPUT ...]] [-r [RRNA [RRNA ...]]] [-e {rrna,norrna,both,none}] 
+  [-t THREADS] [-m MEMORY] [--chunk_size CHUNK_SIZE] [-v]
 
 rRNA sequence detector
 
@@ -82,8 +82,8 @@ optional arguments:
 ```shell
 
 usage: ribodetector_cpu [-h] [-c CONFIG] -l LEN -i [INPUT [INPUT ...]] 
--o [OUTPUT [OUTPUT ...]] [-r [RRNA [RRNA ...]]] [-e {rrna,norrna,both,none}] 
-[-t THREADS] [--chunk_size CHUNK_SIZE] [-v]
+  -o [OUTPUT [OUTPUT ...]] [-r [RRNA [RRNA ...]]] [-e {rrna,norrna,both,none}] 
+  [-t THREADS] [--chunk_size CHUNK_SIZE] [-v]
 
 rRNA sequence detector
 
