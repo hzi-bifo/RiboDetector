@@ -31,6 +31,13 @@ pip install ribodetector
 
 #### GPU mode
 
+#### Example
+```shell
+ribodetector -t 20 -l 100 -i inputs/reads.{1,2}.fq.gz -o outputs/reads.nonrrna.{1,2}.fq.gz -m 10 -e rrna --chunk_size 256
+```
+The command lind above excutes ribodetector for paired-end reads with length 100 using GPU and 20 CPU cores
+
+#### Full help
 ```shell
 usage: ribodetector [-h] [-c CONFIG] [-d DEVICEID] -l LEN -i [INPUT [INPUT ...]]
   -o [OUTPUT [OUTPUT ...]] [-r [RRNA [RRNA ...]]] [-e {rrna,norrna,both,none}] 
@@ -81,6 +88,14 @@ optional arguments:
 
 #### CPU mode
 
+#### Example
+```shell
+ribodetector_cpu -t 20 -l 100 -i inputs/reads.{1,2}.fq.gz -o outputs/reads.nonrrna.{1,2}.fq.gz -e rrna --chunk_size 256
+```
+The above command line excutes ribodetector for paired-end reads with length 100 using 20 CPU cores.
+
+#### Full help
+
 ```shell
 
 usage: ribodetector_cpu [-h] [-c CONFIG] -l LEN -i [INPUT [INPUT ...]] 
@@ -122,6 +137,7 @@ optional arguments:
                         1024 reads, in total consumming ~20G memory.
   -v, --version         show program's version number and exit
 ```
+
 
 <!-- ### Benchmarks
 
