@@ -34,12 +34,12 @@ pip install ribodetector
 #### Example
 ```shell
 ribodetector -t 20 \
--l 100 \
--i inputs/reads.1.fq.gz inputs/reads.2.fq.gz \
--m 10 \
--e rrna \
---chunk_size 256 \
--o outputs/reads.nonrrna.{1,2}.fq.gz 
+  -l 100 \
+  -i inputs/reads.1.fq.gz inputs/reads.2.fq.gz \
+  -m 10 \
+  -e rrna \
+  --chunk_size 256 \
+  -o outputs/reads.nonrrna.{1,2}.fq.gz 
 ```
 The command lind above excutes ribodetector for paired-end reads with length 100 using GPU and 20 CPU cores
 
