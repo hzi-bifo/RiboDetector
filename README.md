@@ -1,6 +1,7 @@
 ## RiboDetector - Accurate and rapid RiboRNA sequences Detector based on deep learning
 
 ### About Ribodetector
+<img src="RiboDetector_logo.png" width="600" />
 
 `RiboDetector` is a software developed to accurately yet rapidly detect and remove rRNA sequences from metagenomeic, metatranscriptomic, and ncRNA sequencing data. It was developed based on LSTMs and optimized for both GPU and CPU usage to achieve a **10** times on CPU and **50** times on a consumer GPU faster runtime compared to the current state-of-the-art software. Moreover, it is very accurate, with ~**10** times fewer false classifications. Finally, it has a low level of bias towards any GO functional groups. 
 
@@ -33,7 +34,13 @@ pip install ribodetector
 
 #### Example
 ```shell
-ribodetector -t 20 -l 100 -i inputs/reads.{1,2}.fq.gz -o outputs/reads.nonrrna.{1,2}.fq.gz -m 10 -e rrna --chunk_size 256
+ribodetector -t 20 \
+  -l 100 \
+  -i inputs/reads.1.fq.gz inputs/reads.2.fq.gz \
+  -m 10 \
+  -e rrna \
+  --chunk_size 256 \
+  -o outputs/reads.nonrrna.{1,2}.fq.gz 
 ```
 The command lind above excutes ribodetector for paired-end reads with length 100 using GPU and 20 CPU cores
 
@@ -90,7 +97,12 @@ optional arguments:
 
 #### Example
 ```shell
-ribodetector_cpu -t 20 -l 100 -i inputs/reads.{1,2}.fq.gz -o outputs/reads.nonrrna.{1,2}.fq.gz -e rrna --chunk_size 256
+ribodetector_cpu -t 20 \
+  -l 100 \
+  -i inputs/reads.1.fq.gz inputs/reads.2.fq.gz \
+  -e rrna \
+  --chunk_size 256 \
+  -o outputs/reads.nonrrna.{1,2}.fq.gz 
 ```
 The above command line excutes ribodetector for paired-end reads with length 100 using 20 CPU cores.
 
