@@ -11,13 +11,14 @@ required = [
     "tqdm",
     "numpy",
     "biopython",
-    "onnxruntime >= 1.10.0",
-    "torch >= 1.7.1",
+    "onnxruntime >= 1.10.0"
+    # "torch >= 1.7.1",
 ]
 
 setup(
     name="ribodetector",
     version="0.2.4",
+    python_requires=">=3.8",
     author="Z-L Deng",
     author_email="dawnmsg@gmail.com",
     description="Accurate and rapid RiboRNA sequences Detector based on deep learning.",

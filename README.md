@@ -17,10 +17,12 @@ conda create -n ribodetector python=3.8
 conda activate ribodetector
 ```
 
-#### 2. Install `pytorch`
+#### 2. Install `pytorch` in the ribodetector env if GPU is available
 
 To install `pytorch` compatible with your CUDA version, please fellow this instruction:
-https://pytorch.org/get-started/locally/. Our code was tested with `pytorch v1.7` and `v1.7.1`.
+https://pytorch.org/get-started/locally/. Our code was tested with `pytorch v1.7`, `v1.7.1`, `v1.10.2`.
+
+Note: you can skip this step if you don't use GPU
 
 ### Installation
 
@@ -105,6 +107,8 @@ ribodetector_cpu -t 20 \
   -o outputs/reads.nonrrna.{1,2}.fq.gz 
 ```
 The above command line excutes ribodetector for paired-end reads with length 100 using 20 CPU cores.
+
+When using SLURM job submission system, you need to specify `--cpus-per-task` to the number you CPU cores you need and set `--threads-per-core` to 1.
 
 #### Full help
 

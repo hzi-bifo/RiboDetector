@@ -5,7 +5,7 @@ File: detect_cpu.py
 Created Date: January 1st 2020
 Author: ZL Deng <dawnmsg(at)gmail.com>
 ---------------------------------------
-Last Modified: 6th December 2020 11:02:19 pm
+Last Modified: 7th March 2022 12:02:19 pm
 '''
 
 import os
@@ -70,19 +70,23 @@ class Predictor:
         self.model_file = os.path.join(
             cd, self.config['state_file'][model_file_ext]).replace('.pth', '.onnx')
 
-        # self.model = onnxruntime.InferenceSession(self.model_file)
-        so = onnxruntime.SessionOptions()
-        # so.intra_op_num_threads = 2
-        # so.execution_mode = onnxruntime.ExecutionMode.ORT_SEQUENTIAL
-        so.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
-
-        self.model = onnxruntime.InferenceSession(self.model_file, so)
-
         self.logger.info('Using high {} model file: {}{}{}{} on CPU'.format(model_file_ext.upper(),
                                                                             colors.BOLD,
                                                                             colors.OKCYAN,
                                                                             self.model_file,
                                                                             colors.ENDC))
+        
+        so = onnxruntime.SessionOptions()
+        so.intra_op_num_threads = 1
+        so.inter_op_num_threads = 1
+        # so.so.enable_mem_pattern = False
+        # so.enable_cpu_mem_arena = False
+        # so.execution_mode = onnxruntime.ExecutionMode.ORT_SEQUENTIAL
+        so.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
+
+        self.model = onnxruntime.InferenceSession(self.model_file, so)
+
+        
 
     def run(self):
         """
