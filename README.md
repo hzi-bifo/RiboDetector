@@ -26,8 +26,15 @@ Note: you can skip this step if you don't use GPU
 
 ### Installation
 
+#### Using pip
+
 ```shell
-pip install ribodetector
+pip install -c bioconda ribodetector
+```
+
+#### Using conda
+```shell
+conda install -c bioconda ribodetector
 ```
 
 ### Usage
@@ -42,7 +49,7 @@ ribodetector -t 20 \
   -m 10 \
   -e rrna \
   --chunk_size 256 \
-  -o outputs/reads.nonrrna.{1,2}.fq.gz 
+  -o outputs/reads.nonrrna.1.fq outputs/reads.nonrrna.2.fq
 ```
 The command lind above excutes ribodetector for paired-end reads with length 100 using GPU and 20 CPU cores
 
@@ -73,10 +80,10 @@ optional arguments:
                         Path of the output sequence file of detected rRNAs (same 
                         number of files as input)
   -e {rrna,norrna,both,none}, --ensure {rrna,norrna,both,none}
-                        Only output certain sequences with high confidence
-                        norrna: output non-rRNAs with high confidence, remove as many 
-                        rRNAs as possible;
-                        rrna: vice versa, output rRNAs with high confidence;
+                        Ensure which classificaion has high confidence
+                        norrna: output only high confident non-rRNAs, the rest are clasified as 
+                        rRNAs;
+                        rrna: vice versa, only high confident rRNAs are classified as rRNA and the rest output as non-rRNAs;
                         both: both non-rRNA and rRNA prediction with high confidence;
                         none: give label based on the mean probability of read pair.
                           (Only applicable for paired end reads, discard the read 
@@ -104,7 +111,7 @@ ribodetector_cpu -t 20 \
   -i inputs/reads.1.fq.gz inputs/reads.2.fq.gz \
   -e rrna \
   --chunk_size 256 \
-  -o outputs/reads.nonrrna.{1,2}.fq.gz 
+  -o outputs/reads.nonrrna.1.fq outputs/reads.nonrrna.2.fq
 ```
 The above command line excutes ribodetector for paired-end reads with length 100 using 20 CPU cores.
 
@@ -136,10 +143,10 @@ optional arguments:
                         Path of the output sequence file of detected rRNAs (same 
                         number of files as input)
   -e {rrna,norrna,both,none}, --ensure {rrna,norrna,both,none}
-                        Only output certain sequences with high confidence
-                        norrna: output non-rRNAs with high confidence, remove as many 
-                        rRNAs as possible;
-                        rrna: vice versa, output rRNAs with high confidence;
+                        Ensure which classificaion has high confidence
+                        norrna: output only high confident non-rRNAs, the rest are clasified as 
+                        rRNAs;
+                        rrna: vice versa, only high confident rRNAs are classified as rRNA and the rest output as non-rRNAs;
                         both: both non-rRNA and rRNA prediction with high confidence;
                         none: give label based on the mean probability of read pair.
                          (Only applicable for paired end reads, discard the read 
@@ -184,6 +191,10 @@ In the above figures, the definitions of *FPNR* and *FNR* are:
 <img src="https://render.githubusercontent.com/render/math?math=\large FNR=100\frac{false \:negatives}{total \:positives}">
 
 RiboDetector has a very high generalization ability and is capable of detecting novel rRNA sequences (Fig. C). -->
+
+
+### Citation
+Deng ZL, Münch PC, Mreches R, McHardy AC. Rapid and accurate detection of ribosomal RNA sequences using deep learning. <i>Nucleic Acids Research</i>. 2022. (https://doi.org/10.1093/nar/gkac112)
 
 ### Acknowledgements
 The scripts from the `base` dir were from the template [pytorch-template

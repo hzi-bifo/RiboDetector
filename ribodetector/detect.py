@@ -726,9 +726,9 @@ def main():
     args.add_argument('-r', '--rrna', default=None, type=str, nargs='*',
                       help='Path of the output sequence file of detected rRNAs (same number of files as input)')
     args.add_argument('-e', '--ensure', default="none", type=str, choices=['rrna', 'norrna', 'both', 'none'],
-                      help='''Only output certain sequences with high confidence
-norrna: output non-rRNAs with high confidence, remove as many rRNAs as possible;
-rrna: vice versa, output rRNAs with high confidence;
+                      help='''Ensure which classificaion has high confidence
+norrna: output only high confident non-rRNAs, the rest are clasified as rRNAs;
+rrna: vice versa, only high confident rRNAs are classified as rRNA and the rest output as non-rRNAs;
 both: both non-rRNA and rRNA prediction with high confidence;
 none: give label based on the mean probability of read pair.
       (Only applicable for paired end reads, discard the read pair when their predicitons are discordant)''')
