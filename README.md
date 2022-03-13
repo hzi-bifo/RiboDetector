@@ -29,7 +29,7 @@ Note: you can skip this step if you don't use GPU
 #### Using pip
 
 ```shell
-pip install -c bioconda ribodetector
+pip install ribodetector
 ```
 
 #### Using conda
