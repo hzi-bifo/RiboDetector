@@ -161,6 +161,7 @@ optional arguments:
   -v, --version         show program's version number and exit
 ```
 
+**Note**: RiboDetector uses multiprocessing with shared memory, thus the memory use of a single process indicated in `htop` or `top` is actually the total memory used by RiboDector. Some job submission system like SGE mis-calculated the total memory use by adding up the memory use of all process. If you see this do not worry it will cause out of memory issue. 
 
 <!-- ### Benchmarks
 
