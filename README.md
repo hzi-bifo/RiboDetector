@@ -156,7 +156,7 @@ optional arguments:
   --chunk_size CHUNK_SIZE
                         chunk_size * threads reads to process per thread.(default: 
                         1024)
-                        When chunk_size=1024 and threads=20, each process will load 
+                        For 20M PE100 reads, when chunk_size=1024 and threads=20, each process will load 
                         1024 reads, in total consumming ~20G memory.
   -v, --version         show program's version number and exit
 ```
