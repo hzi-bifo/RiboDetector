@@ -10,8 +10,7 @@
 
 #### 1. Create `conda` env and install `Python v3.8`
 
-To be able to use `RiboDetector`, all you need to do is to install `Python v3.8` (make sure you have version `3.8` because `3.7` cannot serialize a string larger than 4GiB) with `conda`:
-
+To be able to use `RiboDetector`, you need to install `Python v3.8` or `v3.9` (make sure you have version `3.8` because `3.7` cannot serialize a string larger than 4GiB) with `conda`:
 ```shell
 conda create -n ribodetector python=3.8
 conda activate ribodetector
