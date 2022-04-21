@@ -154,13 +154,12 @@ optional arguments:
   -t THREADS, --threads THREADS
                         number of threads to use. (default: 10)
   --chunk_size CHUNK_SIZE
-                        chunk_size * threads reads to process per thread.(default: 
-                        1024)
-                        When chunk_size=1024 and threads=20, each process will load 
-                        1024 reads, in total consumming ~20G memory.
+                        chunk_size * 1024 reads to load each time.
+                        When chunk_size=1000 and threads=20, consumming ~20G memory, better to be multiples of the number of threads.
   -v, --version         show program's version number and exit
 ```
 
+**Note**: RiboDetector uses multiprocessing with shared memory, thus the memory use of a single process indicated in `htop` or `top` is actually the total memory used by RiboDector. Some job submission system like SGE mis-calculated the total memory use by adding up the memory use of all process. If you see this do not worry it will cause out of memory issue. 
 
 <!-- ### Benchmarks
 

@@ -163,13 +163,6 @@ class Predictor:
 
             num_batches = math.ceil(num_seqs / self.batch_size)
 
-            # Output probability to files
-            # prob_out_fh = open(
-            #     self.output[0].replace('.r1.fq', '') + '.softmax.probability.txt', 'w')
-
-            # prob_out_fh.write(
-            #     '\t'.join(['read', 'r1_0', 'r1_1', 'r2_0', 'r2_1']) + '\n')
-
             data_loader = tqdm(DataLoader(paired_reads_data,
                                           num_workers=self.args.threads,
                                           pin_memory=self.has_cuda,
@@ -183,28 +176,6 @@ class Predictor:
                         self.device, non_blocking=self.has_cuda))
                     r2_output = self.model(r2_data.to(
                         self.device, non_blocking=self.has_cuda))
-
-                    # output the predicted probability of two classes
-                    # for read_r1, r1_probs, r2_probs in zip(r1,
-                    #                                        torch.nn.functional.softmax(
-                    #                                            r1_output, dim=1).tolist(),
-                    #                                        torch.nn.functional.softmax(r2_output, dim=1).tolist()):
-                    #     read = read_r1.split('\n')[0].lstrip(
-                    #         '@').rsplit('-', 1)[0]
-                    #     read_probs = [
-                    #         read] + list(map(str, r1_probs)) + list(map(str, r2_probs))
-                    #     prob_out_fh.write('\t'.join(read_probs) + '\n')
-
-                    # for read_r2, r2_probs in zip(r2, torch.nn.functional.softmax(r2_output, dim=1).tolist()):
-                    #     read_r2_probs = [read_r2.split(
-                    #         '\n')[0]] + list(map(str, r2_probs))
-                    #     prob_out2_fh.write('\t'.join(read_r2_probs) + '\n')
-
-                    # r1_batch_labels = torch.argmax(r1_output, dim=1).tolist()
-                    # r2_batch_labels = torch.argmax(r2_output, dim=1).tolist()
-
-                    # r1_dict, r2_dict = self.separate_paired_reads(
-                    #     r1, r1_batch_labels, r2, r2_batch_labels)
 
                     r1_dict, r2_dict = self.separate_paired_reads(
                         r1, r1_output, r2, r2_output)
@@ -247,9 +218,6 @@ class Predictor:
 
             norrna1_fh.close()
             norrna2_fh.close()
-
-            # close prob out file handle
-            # prob_out_fh.close()
 
         # Single end reads
         else:

@@ -38,9 +38,9 @@ class Predictor:
         self.args = args
         self.logger = config.get_logger('predict', 1)
         self.chunk_size = self.args.chunk_size
-        self.input = self.args.input
-        self.output = self.args.output
-        self.rrna = self.args.rrna
+        # self.input = self.args.input
+        # self.output = self.args.output
+        # self.rrna = self.args.rrna
         self.SENTINEL = 1  # progressbar signal
 
     def load_model(self):
@@ -75,7 +75,7 @@ class Predictor:
                                                                             colors.OKCYAN,
                                                                             self.model_file,
                                                                             colors.ENDC))
-        
+
         so = onnxruntime.SessionOptions()
         so.intra_op_num_threads = 1
         so.inter_op_num_threads = 1
@@ -86,31 +86,12 @@ class Predictor:
 
         self.model = onnxruntime.InferenceSession(self.model_file, so)
 
-        
-
     def run(self):
         """
         Load data and run the predictor
         """
 
         num_workers = self.args.threads
-        num_inputs = len(self.input)
-        num_rrna_outputs = None if self.rrna is None else len(self.rrna)
-        num_norrna_outputs = len(self.output)
-        if num_inputs != num_norrna_outputs or num_inputs > 2:
-            self.logger.error('{}The number of input and output sequence files is invalid!{}'.format(
-                colors.FAIL,
-                colors.ENDC))
-            raise RuntimeError(
-                "Input or output should have no more than two files and they should have the same number of files.")
-        if num_rrna_outputs != None and num_rrna_outputs != num_inputs:
-            self.logger.error('{}The number of output rRNA sequence files is invalid!{}'.format(
-                colors.FAIL,
-                colors.ENDC))
-            raise RuntimeError(
-                "Ouput rRNA should have no more than two files and they should the same number with input files.")
-
-        is_paired = (num_inputs == 2)
 
         # Manager for multiprocessing
         manager = mp.Manager()
@@ -124,15 +105,15 @@ class Predictor:
         # queue for progressbar signal
         q_pbar = mp.Queue()
 
-        if is_paired:
+        if self.is_paired:
             # Load paired end read files with multiprocessing
             with mp.Pool(2) as p:
                 input_reads = p.map(SeqEncoder.load_reads, self.input)
 
             num_seqs = len(input_reads[0])
 
-            self.num_chunks = math.ceil(
-                num_seqs / (self.chunk_size))
+            self.num_batches = math.ceil(
+                num_seqs / (self.batch_size))
 
             self.logger.info('{}{}{}{} sequences loaded!'.format(
                 colors.BOLD,
@@ -182,9 +163,9 @@ class Predictor:
                 p.start()
                 pool.append(p)
 
-            # Input reads chunks
-            iters = itertools.chain(Predictor.generate_paired_read_chunks(
-                input_reads, self.chunk_size), (None,) * num_workers)
+            # Input reads batches
+            iters = itertools.chain(Predictor.generate_paired_read_batches(
+                input_reads, self.batch_size), (None,) * num_workers)
             for read in iters:
                 work.put(read)
 
@@ -245,8 +226,8 @@ class Predictor:
 
             num_seqs = len(input_reads)
 
-            self.num_chunks = math.ceil(
-                num_seqs / (self.chunk_size))
+            self.num_batches = math.ceil(
+                num_seqs / (self.batch_size))
 
             self.logger.info('{}{}{}{} sequences loaded!'.format(
                 colors.BOLD,
@@ -279,8 +260,8 @@ class Predictor:
                 p.start()
                 pool.append(p)
 
-            iters = itertools.chain(Predictor.generate_read_chunks(
-                input_reads, self.chunk_size), (None,) * num_workers)
+            iters = itertools.chain(Predictor.generate_read_batches(
+                input_reads, self.batch_size), (None,) * num_workers)
             for read in iters:
                 work.put(read)
 
@@ -311,15 +292,248 @@ class Predictor:
                 rrna_fh.close()
             norrna_fh.close()
 
+    def run_with_chunks(self):
+        """
+        Load data with chunks and run the predictor
+        """
+
+        num_workers = self.args.threads
+
+        read_chunk_size = self.batch_size * self.chunk_size
+
+        if self.is_paired:
+            if self.rrna is not None:
+                self.logger.info('Writing output rRNA sequences into file: {}{}{}'.format(
+                    colors.OKBLUE,
+                    ", ".join(self.rrna),
+                    colors.ENDC))
+                rrna1_fh = open_for_write(self.rrna[0])
+                rrna2_fh = open_for_write(self.rrna[1])
+                num_rrna = 0
+
+            self.logger.info('Writing output non-rRNA sequences into file: {}{}{}'.format(
+                colors.OKBLUE,
+                ", ".join(self.output),
+                colors.ENDC))
+
+            norrna1_fh = open_for_write(self.output[0])
+            norrna2_fh = open_for_write(self.output[1])
+
+            if self.args.ensure == 'both':
+
+                unclf1 = self.output[0] + '.unclassified.gz'
+                unclf2 = self.output[1] + '.unclassified.gz'
+                unclf1_fh = open_for_write(unclf1)
+                unclf2_fh = open_for_write(unclf2)
+                self.logger.info('Writing unclassified sequences into file: {}{}, {}{}'.format(
+                    colors.OKYELLOW,
+                    unclf1,
+                    unclf2,
+                    colors.ENDC))
+
+                num_unknown = 0
+
+            num_read = 0
+
+            # Load paired end reads with chunks
+            for chunk in SeqEncoder.get_pairedread_chunks(*self.input,
+                                                          chunk_size=read_chunk_size):
+                # Manager for multiprocessing
+                manager = mp.Manager()
+
+                # List to store prediction results
+                results = manager.list()
+                work = manager.Queue(num_workers)
+
+                pool = []
+
+                # Start the classification processes
+                for _i in range(num_workers):
+                    p = mp.Process(target=self.classify_paired_reads,
+                                   args=(work, results))
+                    p.start()
+                    pool.append(p)
+
+                # Input reads batches for each chunk
+                iters = itertools.chain(Predictor.generate_paired_read_batches(
+                    chunk, self.batch_size), (None,) * num_workers)
+                for read in iters:
+                    work.put(read)
+
+                for p in pool:
+                    p.join()
+
+                for r1_dict, r2_dict in results:
+                    # Load the prediciton results and split the input reads accordingly
+                    if r1_dict[0]:
+                        norrna1_fh.write('\n'.join(r1_dict[0]) + '\n')
+                        norrna2_fh.write('\n'.join(r2_dict[0]) + '\n')
+                    if self.rrna is not None and r1_dict[1]:
+                        rrna1_fh.write('\n'.join(r1_dict[1]) + '\n')
+                        rrna2_fh.write('\n'.join(r2_dict[1]) + '\n')
+                        num_rrna += len(r1_dict[1])
+
+                    if self.args.ensure == 'both' and r1_dict[-1]:
+                        unclf1_fh.write('\n'.join(r1_dict[-1]) + '\n')
+                        unclf2_fh.write('\n'.join(r2_dict[-1]) + '\n')
+                        num_unknown += len(r1_dict[-1])
+
+                        # del r1_data, r2_data, r1_output, r2_output, r1_batch_labels, r2_batch_labels
+                num_read += len(chunk[0])
+
+                self.logger.info('{}{}{}{} reads classified!'.format(
+                    colors.BOLD,
+                    colors.OKCYAN,
+                    num_read,
+                    colors.ENDC))
+
+            if self.rrna is not None:
+                self.logger.info('Done! Detected {}{}{}{} rRNA sequences.'.format(
+                    colors.BOLD,
+                    colors.OKCYAN,
+                    num_rrna,
+                    colors.ENDC
+                ))
+
+                rrna1_fh.close()
+                rrna2_fh.close()
+
+            if self.args.ensure == 'both':
+                self.logger.info('Discarded {}{}{}{} unclassified sequences.'.format(
+                    colors.BOLD,
+                    colors.OKCYAN,
+                    num_unknown,
+                    colors.ENDC))
+
+                unclf1_fh.close()
+                unclf2_fh.close()
+
+            norrna1_fh.close()
+            norrna2_fh.close()
+
+        else:
+            num_read = 0
+            self.logger.info('Classify paired end reads with chunk size {}{}{}'.format(
+                colors.BOLD,
+                self.chunk_size,
+                colors.ENDC))
+
+            if self.rrna is not None:
+                self.logger.info('Writing output rRNA sequences into file: {}{}{}'.format(
+                    colors.OKBLUE,
+                    ", ".join(self.rrna),
+                    colors.ENDC))
+
+                rrna_fh = open_for_write(self.rrna[0])
+                num_rrna = 0
+
+            self.logger.info('Writing output non-rRNA sequences into file: {}{}{}'.format(
+                colors.OKBLUE,
+                ", ".join(self.output),
+                colors.ENDC))
+
+            norrna_fh = open_for_write(self.output[0])
+
+            for chunk in SeqEncoder.get_seq_chunks(*self.input,
+                                                   chunk_size=read_chunk_size):
+                
+                # Manager for multiprocessing
+                manager = mp.Manager()
+
+                # List to store prediction results
+                results = manager.list()
+                work = manager.Queue(num_workers)
+
+                pool = []
+
+                for _i in range(num_workers):
+                    p = mp.Process(target=self.classify_reads,
+                                   args=(work, results))
+                    p.start()
+                    pool.append(p)
+
+                iters = itertools.chain(Predictor.generate_read_batches(
+                    chunk, self.batch_size), (None,) * num_workers)
+                for read in iters:
+                    work.put(read)
+
+                for p in pool:
+                    p.join()
+
+                for r_dict in results:
+
+                    if r_dict[0]:
+                        norrna_fh.write('\n'.join(r_dict[0]) + '\n')
+                    if self.rrna is not None and r_dict[1]:
+                        rrna_fh.write('\n'.join(r_dict[1]) + '\n')
+                        num_rrna += len(r_dict[1])
+
+                num_read += len(chunk)
+
+                self.logger.info('{}{}{}{} reads classified!'.format(
+                    colors.BOLD,
+                    colors.OKCYAN,
+                    num_read,
+                    colors.ENDC))
+
+            if self.rrna is not None:
+                self.logger.info('Done! Detected {}{}{}{} rRNA sequences'.format(
+                    colors.BOLD,
+                    colors.OKCYAN,
+                    num_rrna,
+                    colors.ENDC
+                ))
+                rrna_fh.close()
+            norrna_fh.close()
+
+
+    def detect(self):
+        """Wrapper for all steps
+
+        Raises:
+            RuntimeError: raise error if the number of input read files and output files are invalid
+        """
+        self.input = self.args.input
+        self.output = self.args.output
+        self.rrna = self.args.rrna
+
+        num_inputs = len(self.input)
+        num_rrna_outputs = None if self.rrna is None else len(self.rrna)
+        num_norrna_outputs = len(self.output)
+        if num_inputs != num_norrna_outputs or num_inputs > 2:
+            self.logger.error('{}The number of input and output sequence files is invalid!{}'.format(
+                colors.FAIL,
+                colors.ENDC))
+            raise RuntimeError(
+                "Input or output should have no more than two files and they should have the same number of files.")
+        if num_rrna_outputs != None and num_rrna_outputs != num_inputs:
+            self.logger.error('{}The number of output rRNA sequence files is invalid!{}'.format(
+                colors.FAIL,
+                colors.ENDC))
+            raise RuntimeError(
+                "Ouput rRNA should have no more than two files and they should the same number with input files.")
+
+        self.batch_size = 1024
+        self.is_paired = (num_inputs == 2)
+
+        if self.chunk_size is None:
+            self.run()
+        else:
+            self.logger.info('Classify reads with chunk size {}{}{}'.format(
+                colors.BOLD,
+                self.chunk_size,
+                colors.ENDC))
+            self.run_with_chunks()
+
     @staticmethod
-    def generate_read_chunks(reads, n):
-        """Yield successive n-sized chunks from read list."""
+    def generate_read_batches(reads, n):
+        """Yield successive n-sized batches from read list."""
         for i in range(0, len(reads), n):
             yield reads[i:i + n]
 
     @staticmethod
-    def generate_paired_read_chunks(reads, n):
-        """Yield successive n-sized chunks from paired end read list."""
+    def generate_paired_read_batches(reads, n):
+        """Yield successive n-sized batches from paired end read list."""
         r1, r2 = reads
         for i in range(0, len(r1), n):
             yield r1[i:i + n], r2[i:i + n]
@@ -393,16 +607,16 @@ class Predictor:
 
         return r1_dict, r2_dict
 
-    def classify_reads(self, chunk, out_list, q_pbar):
-        """Classify reads chunk
+    def classify_reads(self, batch, out_list, q_pbar=None):
+        """Classify reads batch
 
         Args:
-            chunk (list): chunk of reads
+            batch (list): batch of reads
             out_list (list(dict)): list of separated {label: read} dicts
             q_pbar (mp queue): queue for progressbar signal
         """
         while True:
-            reads = chunk.get()
+            reads = batch.get()
             if reads == None:
                 return
 
@@ -414,12 +628,12 @@ class Predictor:
 
             out_list.append(Predictor.separate_reads(
                 reads, np.argmax(outputs[0], axis=1)))
+            if q_pbar is not None:
+                q_pbar.put(self.SENTINEL)
 
-            q_pbar.put(self.SENTINEL)
-
-    def classify_paired_reads(self, chunk, out_list, q_pbar):
+    def classify_paired_reads(self, batch, out_list, q_pbar=None):
         while True:
-            reads = chunk.get()
+            reads = batch.get()
             if reads == None:
                 return
 
@@ -440,10 +654,11 @@ class Predictor:
             out_list.append(self.separate_paired_reads(
                 r1, output_r1, r2, output_r2))
 
-            q_pbar.put(self.SENTINEL)
+            if q_pbar is not None:
+                q_pbar.put(self.SENTINEL)
 
     def listener(self, q_pbar):
-        pbar = tqdm(total=self.num_chunks)
+        pbar = tqdm(total=self.num_batches)
         for _ in iter(q_pbar.get, None):
             pbar.update()
 
@@ -507,10 +722,9 @@ none: give label based on the mean probability of read pair.
     args.add_argument('-t', '--threads', default=20, type=int,
                       help='number of threads to use. (default: 10)')
 
-    args.add_argument('--chunk_size', default=1024, type=int,
-                      help='chunk_size * threads reads to process per thread.(default: 1024) \n{}.'.format(
-                          'When chunk_size=1024 and threads=20, each process will load 1024 reads, in total consumming ~20G memory'
-                      ))
+    args.add_argument('--chunk_size', default=None, type=int,
+                      help='chunk_size * 1024 reads to load each time. \n{}.'.format(
+                          'When chunk_size=1000 and threads=20, consumming ~20G memory, better to be multiples of the number of threads.'))
 
     args.add_argument('-v', '--version', action='version',
                       version='%(prog)s {version}'.format(version=__version__))
@@ -528,7 +742,8 @@ none: give label based on the mean probability of read pair.
 
     seq_pred = Predictor(config, args)
     seq_pred.load_model()
-    seq_pred.run()
+
+    seq_pred.detect()
 
 
 if __name__ == '__main__':
