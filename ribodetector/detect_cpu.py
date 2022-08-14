@@ -12,6 +12,7 @@ import os
 import math
 import gzip
 import argparse
+import platform
 import itertools
 import onnxruntime
 import numpy as np
@@ -436,7 +437,7 @@ class Predictor:
 
             for chunk in SeqEncoder.get_seq_chunks(*self.input,
                                                    chunk_size=read_chunk_size):
-                
+
                 # Manager for multiprocessing
                 manager = mp.Manager()
 
@@ -486,7 +487,6 @@ class Predictor:
                 rrna_fh.close()
             norrna_fh.close()
 
-
     def detect(self):
         """Wrapper for all steps
 
@@ -506,7 +506,7 @@ class Predictor:
                 colors.ENDC))
             raise RuntimeError(
                 "Input or output should have no more than two files and they should have the same number of files.")
-        if num_rrna_outputs != None and num_rrna_outputs != num_inputs:
+        if num_rrna_outputs is not None and num_rrna_outputs != num_inputs:
             self.logger.error('{}The number of output rRNA sequence files is invalid!{}'.format(
                 colors.FAIL,
                 colors.ENDC))
@@ -704,7 +704,7 @@ def main():
                       help='Path of config file')
 
     args.add_argument('-l', '--len', type=int, required=True,
-                      help='Sequencing read length, should be not smaller than 50.')
+                      help='Sequencing read length. Note: the accuracy reduces for reads shorter than 40.')
     args.add_argument('-i', '--input', default=None, type=str, nargs='*', required=True,
                       help='Path of input sequence files (fasta and fastq), the second file will be considered as second end if two files given.')
     args.add_argument('-o', '--output', default=None, type=str, nargs='*', required=True,
@@ -712,7 +712,7 @@ def main():
     args.add_argument('-r', '--rrna', default=None, type=str, nargs='*',
                       help='Path of the output sequence file of detected rRNAs (same number of files as input)')
     args.add_argument('-e', '--ensure', default="none", type=str, choices=['rrna', 'norrna', 'both', 'none'],
-                      help='''Ensure which classificaion has high confidence
+                      help='''Ensure which classificaion has high confidence for paired end reads.
 norrna: output only high confident non-rRNAs, the rest are clasified as rRNAs;
 rrna: vice versa, only high confident rRNAs are classified as rRNA and the rest output as non-rRNAs;
 both: both non-rRNA and rRNA prediction with high confidence;
@@ -720,7 +720,7 @@ none: give label based on the mean probability of read pair.
       (Only applicable for paired end reads, discard the read pair when their predicitons are discordant)''')
 
     args.add_argument('-t', '--threads', default=20, type=int,
-                      help='number of threads to use. (default: 10)')
+                      help='number of threads to use. (default: 20)')
 
     args.add_argument('--chunk_size', default=None, type=int,
                       help='chunk_size * 1024 reads to load each time. \n{}.'.format(
@@ -740,6 +740,8 @@ none: give label based on the mean probability of read pair.
     os.environ['OMP_NUM_THREADS'] = '1'
     # os.environ['MKL_NUM_THREADS'] = '1'
 
+    if platform.system() == 'Darwin':
+        mp.set_start_method('fork')
     seq_pred = Predictor(config, args)
     seq_pred.load_model()
 

@@ -17,7 +17,7 @@ required = [
 
 setup(
     name="ribodetector",
-    version="0.2.6",
+    version="0.2.7",
     python_requires=">=3.8",
     author="Z-L Deng",
     author_email="dawnmsg@gmail.com",

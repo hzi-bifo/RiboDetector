@@ -110,6 +110,7 @@ class Predictor:
         model.load_state_dict(state_dict)
 
         self.model = model.to(self.device, non_blocking=self.has_cuda)
+        self.model.eval()
 
     def run(self):
         """
@@ -461,7 +462,7 @@ class Predictor:
             raise RuntimeError(
                 "Input or output should have no more than two files and they should have the same number of files.")
 
-        if num_rrna_outputs != None and num_rrna_outputs != num_inputs:
+        if num_rrna_outputs is not None and num_rrna_outputs != num_inputs:
             self.logger.error('{}The number of output rRNA sequence files is invalid!{}'.format(
                 colors.FAIL,
                 colors.ENDC))
@@ -686,7 +687,7 @@ def main():
     args.add_argument('-d', '--deviceid', default=None, type=str,
                       help='Indices of GPUs to enable. Quotated comma-separated device ID numbers. (default: all)')
     args.add_argument('-l', '--len', type=int, required=True,
-                      help='Sequencing read length, should be not smaller than 50.')
+                      help='Sequencing read length. Note: the accuracy reduces for reads shorter than 40.')
     args.add_argument('-i', '--input', default=None, type=str, nargs='*', required=True,
                       help='Path of input sequence files (fasta and fastq), the second file will be considered as second end if two files given.')
     args.add_argument('-o', '--output', default=None, type=str, nargs='*', required=True,
@@ -694,7 +695,7 @@ def main():
     args.add_argument('-r', '--rrna', default=None, type=str, nargs='*',
                       help='Path of the output sequence file of detected rRNAs (same number of files as input)')
     args.add_argument('-e', '--ensure', default="none", type=str, choices=['rrna', 'norrna', 'both', 'none'],
-                      help='''Ensure which classificaion has high confidence
+                      help='''Ensure which classificaion has high confidence for paired end reads.
 norrna: output only high confident non-rRNAs, the rest are clasified as rRNAs;
 rrna: vice versa, only high confident rRNAs are classified as rRNA and the rest output as non-rRNAs;
 both: both non-rRNA and rRNA prediction with high confidence;
