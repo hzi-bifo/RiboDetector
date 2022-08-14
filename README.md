@@ -106,7 +106,7 @@ ribodetector_cpu -t 20 \
 ```
 The above command line excutes ribodetector for paired-end reads with length 100 using 20 CPU cores.
 
-When using SLURM job submission system, you need to specify `--cpus-per-task` to the number you CPU cores you need and set `--threads-per-core` to 1.
+Note: when using **SLURM** job submission system, you need to specify `--cpus-per-task` to the number you CPU cores you need and set `--threads-per-core` to 1.
 
 #### Full help
 
