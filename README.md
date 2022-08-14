@@ -65,39 +65,31 @@ optional arguments:
   -c CONFIG, --config CONFIG
                         Path of config file
   -d DEVICEID, --deviceid DEVICEID
-                        Indices of GPUs to enable. Quotated comma-separated device ID 
-                        numbers. (default: all)
-  -l LEN, --len LEN     Sequencing read length, should be not smaller than 50.
+                        Indices of GPUs to enable. Quotated comma-separated device ID numbers. (default: all)
+  -l LEN, --len LEN     Sequencing read length. Note: the accuracy reduces for reads shorter than 40.
   -i [INPUT [INPUT ...]], --input [INPUT [INPUT ...]]
-                        Path of input sequence files (fasta and fastq), the second 
-                        file will be considered as second end if two files given.
+                        Path of input sequence files (fasta and fastq), the second file will be considered 
+                        as second end if two files given.
   -o [OUTPUT [OUTPUT ...]], --output [OUTPUT [OUTPUT ...]]
-                        Path of the output sequence files after rRNAs removal (same 
-                        number of files as input). (Note: 2 times slower to write gz 
-                        files)
+                        Path of the output sequence files after rRNAs removal (same number of files as input).
+                        (Note: 2 times slower to write gz files)
   -r [RRNA [RRNA ...]], --rrna [RRNA [RRNA ...]]
-                        Path of the output sequence file of detected rRNAs (same 
-                        number of files as input)
+                        Path of the output sequence file of detected rRNAs (same number of files as input)
   -e {rrna,norrna,both,none}, --ensure {rrna,norrna,both,none}
-                        Ensure which classificaion has high confidence
-                        norrna: output only high confident non-rRNAs, the rest are clasified as 
-                        rRNAs;
+                        Ensure which classificaion has high confidence for paired end reads.
+                        norrna: output only high confident non-rRNAs, the rest are clasified as rRNAs;
                         rrna: vice versa, only high confident rRNAs are classified as rRNA and the rest output as non-rRNAs;
                         both: both non-rRNA and rRNA prediction with high confidence;
                         none: give label based on the mean probability of read pair.
-                          (Only applicable for paired end reads, discard the read 
-                           pair when their predicitons are discordant)
+                              (Only applicable for paired end reads, discard the read pair when their predicitons are discordant)
   -t THREADS, --threads THREADS
                         number of threads to use. (default: 10)
   -m MEMORY, --memory MEMORY
                         amount (GB) of GPU RAM. (default: 12)
   --chunk_size CHUNK_SIZE
-                        Use this parameter when having low memory. Parsing the file in 
-                        chunks.
-                        Not needed when free RAM >=5 * your_file_size (uncompressed, 
-                        sum of paired ends).
-                        When chunk_size=256, memory=16 it will load 256 * 16 * 1024 
-                        reads each chunk (use ~20 GB for 100bp paired end).
+                        Use this parameter when having low memory. Parsing the file in chunks.
+                        Not needed when free RAM >=5 * your_file_size (uncompressed, sum of paired ends).
+                        When chunk_size=256, memory=16 it will load 256 * 16 * 1024 reads each chunk (use ~20 GB for 100bp paired end).
   -v, --version         show program's version number and exit
 ```
 
@@ -130,31 +122,27 @@ optional arguments:
   -h, --help            show this help message and exit
   -c CONFIG, --config CONFIG
                         Path of config file
-  -l LEN, --len LEN     Sequencing read length, should be not smaller than 50.
+  -l LEN, --len LEN     Sequencing read length. Note: the accuracy reduces for reads shorter than 40.
   -i [INPUT [INPUT ...]], --input [INPUT [INPUT ...]]
-                        Path of input sequence files (fasta and fastq), the second 
-                        file will be considered as second end if two files given.
+                        Path of input sequence files (fasta and fastq), the second file will be considered as 
+                        second end if two files given.
   -o [OUTPUT [OUTPUT ...]], --output [OUTPUT [OUTPUT ...]]
-                        Path of the output sequence files after rRNAs removal (same 
-                        number of files as input).
+                        Path of the output sequence files after rRNAs removal (same number of files as input).
                         (Note: 2 times slower to write gz files)
   -r [RRNA [RRNA ...]], --rrna [RRNA [RRNA ...]]
-                        Path of the output sequence file of detected rRNAs (same 
-                        number of files as input)
+                        Path of the output sequence file of detected rRNAs (same number of files as input)
   -e {rrna,norrna,both,none}, --ensure {rrna,norrna,both,none}
-                        Ensure which classificaion has high confidence
-                        norrna: output only high confident non-rRNAs, the rest are clasified as 
-                        rRNAs;
+                        Ensure which classificaion has high confidence for paired end reads.
+                        norrna: output only high confident non-rRNAs, the rest are clasified as rRNAs;
                         rrna: vice versa, only high confident rRNAs are classified as rRNA and the rest output as non-rRNAs;
                         both: both non-rRNA and rRNA prediction with high confidence;
                         none: give label based on the mean probability of read pair.
-                         (Only applicable for paired end reads, discard the read 
-                          pair when their predicitons are discordant)
+                              (Only applicable for paired end reads, discard the read pair when their predicitons are discordant)
   -t THREADS, --threads THREADS
-                        number of threads to use. (default: 10)
+                        number of threads to use. (default: 20)
   --chunk_size CHUNK_SIZE
                         chunk_size * 1024 reads to load each time.
-                        When chunk_size=1000 and threads=20, consumming ~20G memory, better to be multiples of the number of threads.
+                        When chunk_size=1000 and threads=20, consumming ~20G memory, better to be multiples of the number of threads..
   -v, --version         show program's version number and exit
 ```
 
