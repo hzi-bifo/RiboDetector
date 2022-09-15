@@ -50,7 +50,7 @@ ribodetector -t 20 \
   --chunk_size 256 \
   -o outputs/reads.nonrrna.1.fq outputs/reads.nonrrna.2.fq
 ```
-The command lind above excutes ribodetector for paired-end reads with mean length 100 using GPU and 20 CPU cores. The input reads do not need to be same length. RiboDetector supports reads with variable length. Set `-l` to the mean read length is recommended. 
+The command lind above excutes ribodetector for paired-end reads with mean length 100 using GPU and 20 CPU cores. The input reads do not need to be same length. RiboDetector supports reads with variable length. Setting `-l` to the mean read length is recommended. 
 
 #### Full help
 ```shell
@@ -104,7 +104,7 @@ ribodetector_cpu -t 20 \
   --chunk_size 256 \
   -o outputs/reads.nonrrna.1.fq outputs/reads.nonrrna.2.fq
 ```
-The above command line excutes ribodetector for paired-end reads with mean length 100 using 20 CPU cores. The input reads do not need to be same length. RiboDetector supports reads with variable length. Set `-l` to the mean read length is recommended. 
+The above command line excutes ribodetector for paired-end reads with mean length 100 using 20 CPU cores. The input reads do not need to be same length. RiboDetector supports reads with variable length. Setting `-l` to the mean read length is recommended. 
 
 Note: when using **SLURM** job submission system, you need to specify `--cpus-per-task` to the number you CPU cores you need and set `--threads-per-core` to 1.
 
