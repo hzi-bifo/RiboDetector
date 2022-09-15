@@ -50,7 +50,7 @@ ribodetector -t 20 \
   --chunk_size 256 \
   -o outputs/reads.nonrrna.1.fq outputs/reads.nonrrna.2.fq
 ```
-The command lind above excutes ribodetector for paired-end reads with length 100 using GPU and 20 CPU cores
+The command lind above excutes ribodetector for paired-end reads with mean length 100 using GPU and 20 CPU cores. The input reads do not need to be same length. RiboDetector supports reads with variable length. Set `-l` to the mean read length is recommended. 
 
 #### Full help
 ```shell
@@ -66,7 +66,7 @@ optional arguments:
                         Path of config file
   -d DEVICEID, --deviceid DEVICEID
                         Indices of GPUs to enable. Quotated comma-separated device ID numbers. (default: all)
-  -l LEN, --len LEN     Sequencing read length. Note: the accuracy reduces for reads shorter than 40.
+  -l LEN, --len LEN     Sequencing read length (mean length). Note: the accuracy reduces for reads shorter than 40.
   -i [INPUT [INPUT ...]], --input [INPUT [INPUT ...]]
                         Path of input sequence files (fasta and fastq), the second file will be considered 
                         as second end if two files given.
@@ -104,7 +104,7 @@ ribodetector_cpu -t 20 \
   --chunk_size 256 \
   -o outputs/reads.nonrrna.1.fq outputs/reads.nonrrna.2.fq
 ```
-The above command line excutes ribodetector for paired-end reads with length 100 using 20 CPU cores.
+The above command line excutes ribodetector for paired-end reads with mean length 100 using 20 CPU cores. The input reads do not need to be same length. RiboDetector supports reads with variable length. Set `-l` to the mean read length is recommended. 
 
 Note: when using **SLURM** job submission system, you need to specify `--cpus-per-task` to the number you CPU cores you need and set `--threads-per-core` to 1.
 
@@ -122,7 +122,7 @@ optional arguments:
   -h, --help            show this help message and exit
   -c CONFIG, --config CONFIG
                         Path of config file
-  -l LEN, --len LEN     Sequencing read length. Note: the accuracy reduces for reads shorter than 40.
+  -l LEN, --len LEN     Sequencing read length (mean length). Note: the accuracy reduces for reads shorter than 40.
   -i [INPUT [INPUT ...]], --input [INPUT [INPUT ...]]
                         Path of input sequence files (fasta and fastq), the second file will be considered as 
                         second end if two files given.
@@ -178,6 +178,15 @@ In the above figures, the definitions of *FPNR* and *FNR* are:
 
 RiboDetector has a very high generalization ability and is capable of detecting novel rRNA sequences (Fig. C). -->
 
+### FAQ
+1. What should I set for `-l` when I have reads with variable length?
+> You can set the `-l` parameter to the mean read length if you have reads with variable length. The mean read length can be computed with `seqkit stats`. This parameter tells how many bases will be used to capture the sequences patterns for classification.  
+
+2. How does `-e` parameter work? What should I set (`rrna`, `norrna`, `none`, `both`)?
+> This parameter is only necessary for paired end reads. When setting to `rrna`, the paired read ends will be predicted as rRNA only if both ends were classified as rRNA. If you want to identify or remove rRNAs with high confidence, you should set it to `rrna`. Conversely, `norrna` will predict the read pair as nonrRNA only if both ends were classified as nonrRNA. This setting will only output nonrRNAs with high confidence. `both` will discard the read pairs with two ends classified inconsistently, only pairs with concordant prediction will be reported in the corresponding output. `none` will take the mean of the probabilities of both ends and decide the final prediction. This is also the default setting. 
+
+3. I have very large input file but limited memory, what should I do?
+> You can set the `--chunk_size` parameter which tells how many reads the software load into memory once. 
 
 ### Citation
 Deng ZL, Münch PC, Mreches R, McHardy AC. Rapid and accurate detection of ribosomal RNA sequences using deep learning. <i>Nucleic Acids Research</i>. 2022. (https://doi.org/10.1093/nar/gkac112)
