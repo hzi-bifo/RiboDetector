@@ -94,7 +94,7 @@ class Predictor:
             self.has_cuda = True
             state = torch.load(self.state_file)
         else:
-            self.logger.error('{}No visible CUDA devices!{} Please use detect_cpu.py to run it on CPU if you do not have GPU or \nyou need to install GPU version of PyTorch'.format(
+            self.logger.error('{}No visible CUDA devices!{} Please use ribodetector_cpu to run it on CPU if you do not have GPU or \nyou need to install GPU version of PyTorch'.format(
                 colors.FAIL,
                 colors.ENDC))
             raise RuntimeError(
