@@ -76,14 +76,18 @@ class ConfigParser:
         """Access items like ordinary dict."""
         return self.config[name]
 
-    def get_logger(self, name, verbosity=2):
+    def get_logger(self, name, verbosity=2, logfile=None):
+        handlers = [logging.StreamHandler()]
+        if logfile is not None:
+            handlers.append(logging.FileHandler(logfile, mode='w'))
         msg_verbosity = 'verbosity option {} is invalid. Valid options are {}.'.format(
             verbosity, self.log_levels.keys())
         assert verbosity in self.log_levels, msg_verbosity
         logging.basicConfig(
             level=self.log_levels[verbosity],
             format='%(asctime)s : %(levelname)s  %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S')
+            datefmt='%Y-%m-%d %H:%M:%S',
+            handlers=handlers)
         logger = logging.getLogger(name)
         return logger
 

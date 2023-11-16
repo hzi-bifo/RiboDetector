@@ -39,7 +39,7 @@ class Predictor:
     def __init__(self, config, args):
         self.config = config
         self.args = args
-        self.logger = config.get_logger('predict', 1)
+        self.logger = config.get_logger('predict', 1, self.args.log)
         self.chunk_size = self.args.chunk_size
 
     def get_state_dict(self):
@@ -69,11 +69,17 @@ class Predictor:
 
         self.state_file = os.path.join(
             cd, self.config['state_file'][model_file_ext])
-        self.logger.info('Using high {} model file: {}{}{}{}'.format(model_file_ext.upper(),
-                                                                     colors.BOLD,
-                                                                     colors.OKCYAN,
-                                                                     self.state_file,
-                                                                     colors.ENDC))
+        # self.logger.info('Using high {} model file: {}{}{}{}'.format(model_file_ext.upper(),
+        #                                                             colors.BOLD,
+        #                                                             colors.OKCYAN,
+        #                                                             self.state_file,
+        #                                                             colors.ENDC))
+
+        self.logger.info('Using high {} model'.format(model_file_ext.upper()))
+        
+        self.logger.info('Log file: {}'.format(
+            self.args.log
+            ))
 
     def load_model(self):
         """Load the model onto CUDA device
@@ -117,6 +123,9 @@ class Predictor:
         Load data and run the predictor
         """
 
+        num_nonrrna = 0
+        num_rrna = 0
+
         if self.is_paired:
             # Load paired end read files using multiprocessing
             with Pool(2) as p:
@@ -139,7 +148,7 @@ class Predictor:
                     colors.ENDC))
                 rrna1_fh = open_for_write(self.rrna[0])
                 rrna2_fh = open_for_write(self.rrna[1])
-                num_rrna = 0
+                # num_rrna = 0
 
             self.logger.info('Writing output non-rRNA sequences into file: {}{}{}'.format(
                 colors.OKBLUE,
@@ -180,13 +189,17 @@ class Predictor:
 
                     r1_dict, r2_dict = self.separate_paired_reads(
                         r1, r1_output, r2, r2_output)
+                    
+                    num_nonrrna += len(r1_dict[0])
+                    num_rrna += len(r1_dict[1])
+                    
                     if r1_dict[0]:
                         norrna1_fh.write('\n'.join(r1_dict[0]) + '\n')
                         norrna2_fh.write('\n'.join(r2_dict[0]) + '\n')
                     if self.rrna is not None and r1_dict[1]:
                         rrna1_fh.write('\n'.join(r1_dict[1]) + '\n')
                         rrna2_fh.write('\n'.join(r2_dict[1]) + '\n')
-                        num_rrna += len(r1_dict[1])
+
                     if self.args.ensure == 'both' and r1_dict[-1]:
                         unclf1_fh.write('\n'.join(r1_dict[-1]) + '\n')
                         unclf2_fh.write('\n'.join(r2_dict[-1]) + '\n')
@@ -195,14 +208,21 @@ class Predictor:
                     # del r1_data, r2_data, r1_output, r2_output, r1_batch_labels, r2_batch_labels
 
             # Write predicted rRNA sequences if the rRNA output file is given
-            if self.rrna is not None:
-                self.logger.info('Done! Detected {}{}{}{} rRNA sequences.'.format(
-                    colors.BOLD,
-                    colors.OKCYAN,
-                    num_rrna,
-                    colors.ENDC
-                ))
+            self.logger.info('Detected {}{}{}{} non-rRNA sequences.'.format(
+                colors.BOLD,
+                colors.OKCYAN,
+                num_nonrrna,
+                colors.ENDC
+            ))
+            
+            self.logger.info('Detected {}{}{}{} rRNA sequences.'.format(
+                colors.BOLD,
+                colors.OKCYAN,
+                num_rrna,
+                colors.ENDC
+            ))
 
+            if self.rrna is not None:
                 rrna1_fh.close()
                 rrna2_fh.close()
 
@@ -239,7 +259,7 @@ class Predictor:
                     colors.ENDC))
 
                 rrna_fh = open_for_write(self.rrna[0])
-                num_rrna = 0
+                # num_rrna = 0
 
             self.logger.info('Writing output non-rRNA sequences into file: {}{}{}'.format(
                 colors.OKBLUE,
@@ -262,21 +282,32 @@ class Predictor:
                     batch_labels = torch.argmax(output, dim=1).tolist()
                     separated_reads = Predictor.separate_reads(
                         reads, batch_labels)
+                
+                    num_nonrrna += len(separated_reads[0])
+                    num_rrna += len(separated_reads[1])
+
                     if separated_reads[0]:
                         norrna_fh.write('\n'.join(separated_reads[0]) + '\n')
                     if self.rrna is not None and separated_reads[1]:
                         rrna_fh.write('\n'.join(separated_reads[1]) + '\n')
-                        num_rrna += len(separated_reads[1])
 
                     # del data, output, batch_labels
+            
+            self.logger.info('Detected {}{}{}{} non-rRNA sequences.'.format(
+                colors.BOLD,
+                colors.OKCYAN,
+                num_nonrrna,
+                colors.ENDC
+            ))
+            
+            self.logger.info('Detected {}{}{}{} rRNA sequences'.format(
+                colors.BOLD,
+                colors.OKCYAN,
+                num_rrna,
+                colors.ENDC
+            ))
 
             if self.rrna is not None:
-                self.logger.info('Done! Detected {}{}{}{} rRNA sequences'.format(
-                    colors.BOLD,
-                    colors.OKCYAN,
-                    num_rrna,
-                    colors.ENDC
-                ))
                 rrna_fh.close()
             norrna_fh.close()
 
@@ -285,6 +316,10 @@ class Predictor:
         Run the model on input sequence files loaded into chunks to reduce the memory comsumption
         """
 
+        num_read = 0
+        num_nonrrna = 0
+        num_rrna = 0
+        
         if self.is_paired:
 
             if self.rrna is not None:
@@ -295,7 +330,6 @@ class Predictor:
 
                 rrna1_fh = open_for_write(self.rrna[0])
                 rrna2_fh = open_for_write(self.rrna[1])
-                num_rrna = 0
 
             self.logger.info('Writing output non-rRNA sequences into file: {}{}{}'.format(
                 colors.OKBLUE,
@@ -317,7 +351,7 @@ class Predictor:
                     colors.ENDC))
                 num_unknown = 0
 
-            num_read = 0
+            #num_read = 0
 
             with torch.no_grad():
                 # Load paired end read files into chunks
@@ -339,13 +373,14 @@ class Predictor:
 
                         r1_dict, r2_dict = self.separate_paired_reads(
                             r1, r1_output, r2, r2_output)
+                        num_nonrrna += len(r1_dict[0])
+                        num_rrna += len(r1_dict[1])
                         if r1_dict[0]:
                             norrna1_fh.write('\n'.join(r1_dict[0]) + '\n')
                             norrna2_fh.write('\n'.join(r2_dict[0]) + '\n')
                         if self.rrna is not None and r1_dict[1]:
                             rrna1_fh.write('\n'.join(r1_dict[1]) + '\n')
                             rrna2_fh.write('\n'.join(r2_dict[1]) + '\n')
-                            num_rrna += len(r1_dict[1])
 
                         if self.args.ensure == 'both' and r1_dict[-1]:
                             unclf1_fh.write('\n'.join(r1_dict[-1]) + '\n')
@@ -358,14 +393,22 @@ class Predictor:
                         colors.ENDC))
 
                     # del r1_data, r2_data, r1_output, r2_output, r1_batch_labels, r2_batch_labels
+            self.logger.info('Detected {}{}{}{} non-rRNA sequences.'.format(
+                colors.BOLD,
+                colors.OKCYAN,
+                num_nonrrna,
+                colors.ENDC
+            ))
+
+            self.logger.info('Detected {}{}{}{} rRNA sequences.'.format(
+                colors.BOLD,
+                colors.OKCYAN,
+                num_rrna,
+                colors.ENDC
+            ))
+
 
             if self.rrna is not None:
-                self.logger.info('Done! Detected {}{}{}{} rRNA sequences.'.format(
-                    colors.BOLD,
-                    colors.OKCYAN,
-                    num_rrna,
-                    colors.ENDC
-                ))
                 rrna1_fh.close()
                 rrna2_fh.close()
 
@@ -387,7 +430,7 @@ class Predictor:
                 self.logger.info('Writing output rRNA sequences into file: {}{}{}'.format(
                     colors.OKBLUE, ", ".join(self.rrna), colors.ENDC))
                 rrna_fh = open_for_write(self.rrna[0])
-                num_rrna = 0
+                #num_rrna = 0
 
             self.logger.info('Writing output non-rRNA sequences into file: {}{}{}'.format(
                 colors.OKBLUE,
@@ -395,7 +438,7 @@ class Predictor:
                 colors.ENDC))
             norrna_fh = open_for_write(self.output[0])
 
-            num_read = 0
+            #num_read = 0
 
             with torch.no_grad():
                 # Load single end read file into chunks
@@ -417,12 +460,15 @@ class Predictor:
                         batch_labels = torch.argmax(output, dim=1).tolist()
                         separated_reads = Predictor.separate_reads(
                             reads, batch_labels)
+                        
+                        num_nonrrna += len(separated_reads[0])
+                        num_rrna += len(separated_reads[1])
+                        
                         if separated_reads[0]:
                             norrna_fh.write(
                                 '\n'.join(separated_reads[0]) + '\n')
                         if self.rrna is not None and separated_reads[1]:
                             rrna_fh.write('\n'.join(separated_reads[1]) + '\n')
-                            num_rrna += len(separated_reads[1])
 
                     # del data, output, batch_labels
 
@@ -431,13 +477,21 @@ class Predictor:
                         num_read,
                         colors.ENDC))
 
+            self.logger.info('Detected {}{}{}{} non-rRNA sequences'.format(
+                colors.BOLD,
+                colors.OKCYAN,
+                num_nonrrna,
+                colors.ENDC
+            ))
+
+            self.logger.info('Detected {}{}{}{} rRNA sequences'.format(
+                colors.BOLD,
+                colors.OKCYAN,
+                num_rrna,
+                colors.ENDC
+            ))
+            
             if self.rrna is not None:
-                self.logger.info('Done! Detected {}{}{}{} rRNA sequences'.format(
-                    colors.BOLD,
-                    colors.OKCYAN,
-                    num_rrna,
-                    colors.ENDC
-                ))
                 rrna_fh.close()
             norrna_fh.close()
 
@@ -711,6 +765,8 @@ none: give label based on the mean probability of read pair.
                           'Not needed when free RAM >=5 * your_file_size (uncompressed, sum of paired ends)',
                           'When chunk_size=256, memory=16 it will load 256 * 16 * 1024 reads each chunk (use ~20 GB for 100bp paired end)'
                       ))
+    args.add_argument('--log', default='ribodetector.log', type=str,
+                      help='Log file name')
     args.add_argument('-v', '--version', action='version',
                       version='%(prog)s {version}'.format(version=__version__))
 

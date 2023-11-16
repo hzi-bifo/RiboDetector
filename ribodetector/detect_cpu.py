@@ -37,7 +37,7 @@ class Predictor:
     def __init__(self, config, args):
         self.config = config
         self.args = args
-        self.logger = config.get_logger('predict', 1)
+        self.logger = config.get_logger('predict', 1, self.args.log)
         self.chunk_size = self.args.chunk_size
         # self.input = self.args.input
         # self.output = self.args.output
@@ -71,11 +71,16 @@ class Predictor:
         self.model_file = os.path.join(
             cd, self.config['state_file'][model_file_ext]).replace('.pth', '.onnx')
 
-        self.logger.info('Using high {} model file: {}{}{}{} on CPU'.format(model_file_ext.upper(),
-                                                                            colors.BOLD,
-                                                                            colors.OKCYAN,
-                                                                            self.model_file,
-                                                                            colors.ENDC))
+        # self.logger.info('Using high {} model file: {}{}{}{} on CPU'.format(model_file_ext.upper(),
+        #                                                                     colors.BOLD,
+        #                                                                     colors.OKCYAN,
+        #                                                                     self.model_file,
+        #                                                                     colors.ENDC))
+        self.logger.info('Using high {} model'.format(model_file_ext.upper()))
+        
+        self.logger.info('Log file: {}'.format(
+            self.args.log
+            ))
 
         so = onnxruntime.SessionOptions()
         so.intra_op_num_threads = 1
@@ -105,7 +110,10 @@ class Predictor:
 
         # queue for progressbar signal
         q_pbar = mp.Queue()
-
+        
+        num_nonrrna = 0
+        num_rrna = 0
+        
         if self.is_paired:
             # Load paired end read files with multiprocessing
             with mp.Pool(2) as p:
@@ -129,7 +137,6 @@ class Predictor:
                     colors.ENDC))
                 rrna1_fh = open_for_write(self.rrna[0])
                 rrna2_fh = open_for_write(self.rrna[1])
-                num_rrna = 0
 
             self.logger.info('Writing output non-rRNA sequences into file: {}{}{}'.format(
                 colors.OKBLUE,
@@ -182,6 +189,9 @@ class Predictor:
 
             for r1_dict, r2_dict in results:
                 # Load the prediciton results and split the input reads accordingly
+                
+                num_nonrrna += len(r1_dict[0])
+                num_rrna += len(r1_dict[1])
 
                 if r1_dict[0]:
                     norrna1_fh.write('\n'.join(r1_dict[0]) + '\n')
@@ -189,7 +199,6 @@ class Predictor:
                 if self.rrna is not None and r1_dict[1]:
                     rrna1_fh.write('\n'.join(r1_dict[1]) + '\n')
                     rrna2_fh.write('\n'.join(r2_dict[1]) + '\n')
-                    num_rrna += len(r1_dict[1])
 
                 if self.args.ensure == 'both' and r1_dict[-1]:
                     unclf1_fh.write('\n'.join(r1_dict[-1]) + '\n')
@@ -198,14 +207,21 @@ class Predictor:
 
                     # del r1_data, r2_data, r1_output, r2_output, r1_batch_labels, r2_batch_labels
 
-            if self.rrna is not None:
-                self.logger.info('Done! Detected {}{}{}{} rRNA sequences.'.format(
-                    colors.BOLD,
-                    colors.OKCYAN,
-                    num_rrna,
-                    colors.ENDC
-                ))
+            self.logger.info('Detected {}{}{}{} non-rRNA sequences.'.format(
+                colors.BOLD,
+                colors.OKCYAN,
+                num_nonrrna,
+                colors.ENDC
+            ))
 
+            self.logger.info('Detected {}{}{}{} rRNA sequences.'.format(
+                colors.BOLD,
+                colors.OKCYAN,
+                num_rrna,
+                colors.ENDC
+            ))
+
+            if self.rrna is not None:
                 rrna1_fh.close()
                 rrna2_fh.close()
 
@@ -243,7 +259,7 @@ class Predictor:
                     colors.ENDC))
 
                 rrna_fh = open_for_write(self.rrna[0])
-                num_rrna = 0
+#                num_rrna = 0
 
             self.logger.info('Writing output non-rRNA sequences into file: {}{}{}'.format(
                 colors.OKBLUE,
@@ -278,18 +294,28 @@ class Predictor:
 
             for r_dict in results:
 
+                num_nonrrna += len(r_dict[0])
+                num_rrna += len(r_dict[1])
                 if r_dict[0]:
                     norrna_fh.write('\n'.join(r_dict[0]) + '\n')
                 if self.rrna is not None and r_dict[1]:
                     rrna_fh.write('\n'.join(r_dict[1]) + '\n')
-                    num_rrna += len(r_dict[1])
+
+            self.logger.info('Detected {}{}{}{} non-rRNA sequences'.format(
+                colors.BOLD,
+                colors.OKCYAN,
+                num_nonrrna,
+                colors.ENDC
+            ))
+
+            self.logger.info('Detected {}{}{}{} rRNA sequences'.format(
+                colors.BOLD,
+                colors.OKCYAN,
+                num_rrna,
+                colors.ENDC
+            ))
+
             if self.rrna is not None:
-                self.logger.info('Done! Detected {}{}{}{} rRNA sequences'.format(
-                    colors.BOLD,
-                    colors.OKCYAN,
-                    num_rrna,
-                    colors.ENDC
-                ))
                 rrna_fh.close()
             norrna_fh.close()
 
@@ -302,6 +328,10 @@ class Predictor:
 
         read_chunk_size = self.batch_size * self.chunk_size
 
+        num_read = 0
+        num_nonrrna = 0
+        num_rrna = 0
+
         if self.is_paired:
             if self.rrna is not None:
                 self.logger.info('Writing output rRNA sequences into file: {}{}{}'.format(
@@ -310,7 +340,7 @@ class Predictor:
                     colors.ENDC))
                 rrna1_fh = open_for_write(self.rrna[0])
                 rrna2_fh = open_for_write(self.rrna[1])
-                num_rrna = 0
+                # num_rrna = 0
 
             self.logger.info('Writing output non-rRNA sequences into file: {}{}{}'.format(
                 colors.OKBLUE,
@@ -334,7 +364,7 @@ class Predictor:
 
                 num_unknown = 0
 
-            num_read = 0
+            # num_read = 0
 
             # Load paired end reads with chunks
             for chunk in SeqEncoder.get_pairedread_chunks(*self.input,
@@ -366,13 +396,17 @@ class Predictor:
 
                 for r1_dict, r2_dict in results:
                     # Load the prediciton results and split the input reads accordingly
+
+                    num_nonrrna += len(r1_dict[0])
+                    num_rrna += len(r1_dict[1])
+                    
                     if r1_dict[0]:
                         norrna1_fh.write('\n'.join(r1_dict[0]) + '\n')
                         norrna2_fh.write('\n'.join(r2_dict[0]) + '\n')
                     if self.rrna is not None and r1_dict[1]:
                         rrna1_fh.write('\n'.join(r1_dict[1]) + '\n')
                         rrna2_fh.write('\n'.join(r2_dict[1]) + '\n')
-                        num_rrna += len(r1_dict[1])
+                        # num_rrna += len(r1_dict[1])
 
                     if self.args.ensure == 'both' and r1_dict[-1]:
                         unclf1_fh.write('\n'.join(r1_dict[-1]) + '\n')
@@ -388,14 +422,21 @@ class Predictor:
                     num_read,
                     colors.ENDC))
 
-            if self.rrna is not None:
-                self.logger.info('Done! Detected {}{}{}{} rRNA sequences.'.format(
-                    colors.BOLD,
-                    colors.OKCYAN,
-                    num_rrna,
-                    colors.ENDC
-                ))
+            self.logger.info('Detected {}{}{}{} non-rRNA sequences.'.format(
+                colors.BOLD,
+                colors.OKCYAN,
+                num_nonrrna,
+                colors.ENDC
+            ))
+            
+            self.logger.info('Detected {}{}{}{} rRNA sequences.'.format(
+                colors.BOLD,
+                colors.OKCYAN,
+                num_rrna,
+                colors.ENDC
+            ))
 
+            if self.rrna is not None:
                 rrna1_fh.close()
                 rrna2_fh.close()
 
@@ -413,7 +454,7 @@ class Predictor:
             norrna2_fh.close()
 
         else:
-            num_read = 0
+            # num_read = 0
             self.logger.info('Classify paired end reads with chunk size {}{}{}'.format(
                 colors.BOLD,
                 self.chunk_size,
@@ -426,7 +467,7 @@ class Predictor:
                     colors.ENDC))
 
                 rrna_fh = open_for_write(self.rrna[0])
-                num_rrna = 0
+                # num_rrna = 0
 
             self.logger.info('Writing output non-rRNA sequences into file: {}{}{}'.format(
                 colors.OKBLUE,
@@ -462,12 +503,14 @@ class Predictor:
                     p.join()
 
                 for r_dict in results:
+                    
+                    num_nonrrna += len(r_dict[0])
+                    num_rrna += len(r_dict[1])
 
                     if r_dict[0]:
                         norrna_fh.write('\n'.join(r_dict[0]) + '\n')
                     if self.rrna is not None and r_dict[1]:
                         rrna_fh.write('\n'.join(r_dict[1]) + '\n')
-                        num_rrna += len(r_dict[1])
 
                 num_read += len(chunk)
 
@@ -477,13 +520,21 @@ class Predictor:
                     num_read,
                     colors.ENDC))
 
+            self.logger.info('Detected {}{}{}{} non-rRNA sequences'.format(
+                colors.BOLD,
+                colors.OKCYAN,
+                num_nonrrna,
+                colors.ENDC
+            ))
+
+            self.logger.info('Detected {}{}{}{} rRNA sequences'.format(
+                colors.BOLD,
+                colors.OKCYAN,
+                num_rrna,
+                colors.ENDC
+            ))
+            
             if self.rrna is not None:
-                self.logger.info('Done! Detected {}{}{}{} rRNA sequences'.format(
-                    colors.BOLD,
-                    colors.OKCYAN,
-                    num_rrna,
-                    colors.ENDC
-                ))
                 rrna_fh.close()
             norrna_fh.close()
 
@@ -725,7 +776,8 @@ none: give label based on the mean probability of read pair.
     args.add_argument('--chunk_size', default=None, type=int,
                       help='chunk_size * 1024 reads to load each time. \n{}.'.format(
                           'When chunk_size=1000 and threads=20, consumming ~20G memory, better to be multiples of the number of threads.'))
-
+    args.add_argument('--log', default='ribodetector.log', type=str, 
+                      help='Log file name')
     args.add_argument('-v', '--version', action='version',
                       version='%(prog)s {version}'.format(version=__version__))
 
