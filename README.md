@@ -85,12 +85,13 @@ optional arguments:
   -t THREADS, --threads THREADS
                         number of threads to use. (default: 10)
   -m MEMORY, --memory MEMORY
-                        amount (GB) of GPU RAM. (default: 12)
+                        Amount (GB) of GPU RAM. (default: 12)
   --chunk_size CHUNK_SIZE
                         Use this parameter when having low memory. Parsing the file in chunks.
                         Not needed when free RAM >=5 * your_file_size (uncompressed, sum of paired ends).
                         When chunk_size=256, memory=16 it will load 256 * 16 * 1024 reads each chunk (use ~20 GB for 100bp paired end).
-  -v, --version         show program's version number and exit
+  --log LOG             Log file name
+  -v, --version         Show program's version number and exit
 ```
 
 #### CPU mode
@@ -104,7 +105,7 @@ ribodetector_cpu -t 20 \
   --chunk_size 256 \
   -o outputs/reads.nonrrna.1.fq outputs/reads.nonrrna.2.fq
 ```
-The above command line excutes ribodetector for paired-end reads with mean length 100 using 20 CPU cores. The input reads do not need to be same length. RiboDetector supports reads with variable length. Setting `-l` to the mean read length is recommended. 
+The above command line excutes ribodetector for paired-end reads with mean length 100 using 20 CPU cores. The input reads do not need to be same length. RiboDetector supports reads with variable length. Setting `-l` to the mean read length is recommended. If you need to save the log into a file, you can specify it with `--log <logfile>`
 
 Note: when using **SLURM** job submission system, you need to specify `--cpus-per-task` to the number you CPU cores you need and set `--threads-per-core` to 1.
 
@@ -143,7 +144,8 @@ optional arguments:
   --chunk_size CHUNK_SIZE
                         chunk_size * 1024 reads to load each time.
                         When chunk_size=1000 and threads=20, consumming ~20G memory, better to be multiples of the number of threads..
-  -v, --version         show program's version number and exit
+  --log LGO             Log file name
+  -v, --version         Show program's version number and exit
 ```
 
 **Note**: RiboDetector uses multiprocessing with shared memory, thus the memory use of a single process indicated in `htop` or `top` is actually the total memory used by RiboDector. Some job submission system like SGE mis-calculated the total memory use by adding up the memory use of all process. If you see this do not worry it will cause out of memory issue. 

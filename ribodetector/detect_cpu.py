@@ -206,15 +206,21 @@ class Predictor:
                     num_unknown += len(r1_dict[-1])
 
                     # del r1_data, r2_data, r1_output, r2_output, r1_batch_labels, r2_batch_labels
+            
+            self.logger.info('Processed {}{}{}{} sequences in total'.format(
+                        colors.BOLD,
+                        colors.OKCYAN,
+                        num_seqs,
+                        colors.ENDC))
 
-            self.logger.info('Detected {}{}{}{} non-rRNA sequences.'.format(
+            self.logger.info('Detected {}{}{}{} non-rRNA sequences'.format(
                 colors.BOLD,
                 colors.OKCYAN,
                 num_nonrrna,
                 colors.ENDC
             ))
 
-            self.logger.info('Detected {}{}{}{} rRNA sequences.'.format(
+            self.logger.info('Detected {}{}{}{} rRNA sequences'.format(
                 colors.BOLD,
                 colors.OKCYAN,
                 num_rrna,
@@ -226,7 +232,7 @@ class Predictor:
                 rrna2_fh.close()
 
             if self.args.ensure == 'both':
-                self.logger.info('Discarded {}{}{}{} unclassified sequences.'.format(
+                self.logger.info('Discarded {}{}{}{} unclassified sequences'.format(
                     colors.BOLD,
                     colors.OKCYAN,
                     num_unknown,
@@ -301,6 +307,12 @@ class Predictor:
                 if self.rrna is not None and r_dict[1]:
                     rrna_fh.write('\n'.join(r_dict[1]) + '\n')
 
+            self.logger.info('Processed {}{}{}{} sequences in total'.format(
+                        colors.BOLD,
+                        colors.OKCYAN,
+                        num_seqs,
+                        colors.ENDC))
+            
             self.logger.info('Detected {}{}{}{} non-rRNA sequences'.format(
                 colors.BOLD,
                 colors.OKCYAN,
@@ -333,6 +345,10 @@ class Predictor:
         num_rrna = 0
 
         if self.is_paired:
+            self.logger.info('Classify paired-end reads with chunk size {}{}{}'.format(
+                colors.BOLD,
+                self.chunk_size,
+                colors.ENDC))
             if self.rrna is not None:
                 self.logger.info('Writing output rRNA sequences into file: {}{}{}'.format(
                     colors.OKBLUE,
@@ -416,20 +432,25 @@ class Predictor:
                         # del r1_data, r2_data, r1_output, r2_output, r1_batch_labels, r2_batch_labels
                 num_read += len(chunk[0])
 
-                self.logger.info('{}{}{}{} reads classified!'.format(
-                    colors.BOLD,
-                    colors.OKCYAN,
+                self.logger.info('{}{}{}{} reads finished!'.format(
+                    colors.OKGREEN,
                     num_read,
                     colors.ENDC))
 
-            self.logger.info('Detected {}{}{}{} non-rRNA sequences.'.format(
+            self.logger.info('Processed {}{}{}{} sequences in total'.format(
+                        colors.BOLD,
+                        colors.OKCYAN,
+                        num_read,
+                        colors.ENDC))
+            
+            self.logger.info('Detected {}{}{}{} non-rRNA sequences'.format(
                 colors.BOLD,
                 colors.OKCYAN,
                 num_nonrrna,
                 colors.ENDC
             ))
             
-            self.logger.info('Detected {}{}{}{} rRNA sequences.'.format(
+            self.logger.info('Detected {}{}{}{} rRNA sequences'.format(
                 colors.BOLD,
                 colors.OKCYAN,
                 num_rrna,
@@ -441,7 +462,7 @@ class Predictor:
                 rrna2_fh.close()
 
             if self.args.ensure == 'both':
-                self.logger.info('Discarded {}{}{}{} unclassified sequences.'.format(
+                self.logger.info('Discarded {}{}{}{} unclassified sequences'.format(
                     colors.BOLD,
                     colors.OKCYAN,
                     num_unknown,
@@ -455,7 +476,7 @@ class Predictor:
 
         else:
             # num_read = 0
-            self.logger.info('Classify paired end reads with chunk size {}{}{}'.format(
+            self.logger.info('Classify reads with chunk size {}{}{}'.format(
                 colors.BOLD,
                 self.chunk_size,
                 colors.ENDC))
@@ -514,12 +535,17 @@ class Predictor:
 
                 num_read += len(chunk)
 
-                self.logger.info('{}{}{}{} reads classified!'.format(
-                    colors.BOLD,
-                    colors.OKCYAN,
+                self.logger.info('{}{}{} reads finished!'.format(
+                    colors.OKGREEN,
                     num_read,
                     colors.ENDC))
 
+            self.logger.info('Processed {}{}{}{} sequences in total'.format(
+                        colors.BOLD,
+                        colors.OKCYAN,
+                        num_read,
+                        colors.ENDC))
+            
             self.logger.info('Detected {}{}{}{} non-rRNA sequences'.format(
                 colors.BOLD,
                 colors.OKCYAN,
@@ -570,10 +596,6 @@ class Predictor:
         if self.chunk_size is None:
             self.run()
         else:
-            self.logger.info('Classify reads with chunk size {}{}{}'.format(
-                colors.BOLD,
-                self.chunk_size,
-                colors.ENDC))
             self.run_with_chunks()
 
     @staticmethod
@@ -771,12 +793,12 @@ none: give label based on the mean probability of read pair.
       (Only applicable for paired end reads, discard the read pair when their predicitons are discordant)''')
 
     args.add_argument('-t', '--threads', default=20, type=int,
-                      help='number of threads to use. (default: 20)')
+                      help='Number of threads to use. (default: 20)')
 
     args.add_argument('--chunk_size', default=None, type=int,
                       help='chunk_size * 1024 reads to load each time. \n{}.'.format(
                           'When chunk_size=1000 and threads=20, consumming ~20G memory, better to be multiples of the number of threads.'))
-    args.add_argument('--log', default='ribodetector.log', type=str, 
+    args.add_argument('--log', default=None, type=str,
                       help='Log file name')
     args.add_argument('-v', '--version', action='version',
                       version='%(prog)s {version}'.format(version=__version__))
