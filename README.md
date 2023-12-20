@@ -144,7 +144,7 @@ optional arguments:
   --chunk_size CHUNK_SIZE
                         chunk_size * 1024 reads to load each time.
                         When chunk_size=1000 and threads=20, consumming ~20G memory, better to be multiples of the number of threads..
-  --log LGO             Log file name
+  --log LOG             Log file name
   -v, --version         Show program's version number and exit
 ```
 
