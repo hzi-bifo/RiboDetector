@@ -59,7 +59,7 @@ class Predictor:
             #                 "Sequence length must be set to larger than 40.")
 
             self.logger.info(
-                'The accuracy will be low with reads shorter than 40.')
+                'The accuracy will drop with reads shorter than 40.')
 
         # High recall model if ensure non-rRNA
         if self.args.ensure == 'norrna':
@@ -447,7 +447,9 @@ class Predictor:
         else:
             if self.rrna is not None:
                 self.logger.info('Writing output rRNA sequences into file: {}{}{}'.format(
-                    colors.OKBLUE, ", ".join(self.rrna), colors.ENDC))
+                    colors.OKBLUE, 
+                    ", ".join(self.rrna), 
+                    colors.ENDC))
                 rrna_fh = open_for_write(self.rrna[0])
                 #num_rrna = 0
 

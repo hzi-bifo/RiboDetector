@@ -60,7 +60,7 @@ class Predictor:
             #             raise RuntimeError(
             #                 "Sequence length must be set to larger than 40.")
             self.logger.info(
-                'The accuracy will be low with reads shorter than 40.')
+                'The accuracy will drop with reads shorter than 40.')
 
         # High recall model if ensure non-rRNA
         if self.args.ensure == 'norrna':
@@ -432,7 +432,7 @@ class Predictor:
                         # del r1_data, r2_data, r1_output, r2_output, r1_batch_labels, r2_batch_labels
                 num_read += len(chunk[0])
 
-                self.logger.info('{}{}{}{} reads finished!'.format(
+                self.logger.info('{}{}{} sequences finished!'.format(
                     colors.OKGREEN,
                     num_read,
                     colors.ENDC))
@@ -535,7 +535,7 @@ class Predictor:
 
                 num_read += len(chunk)
 
-                self.logger.info('{}{}{} reads finished!'.format(
+                self.logger.info('{}{}{} sequences finished!'.format(
                     colors.OKGREEN,
                     num_read,
                     colors.ENDC))
