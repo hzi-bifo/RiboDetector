@@ -18,6 +18,7 @@ import onnxruntime
 import numpy as np
 from tqdm import tqdm
 import multiprocessing as mp
+import multiprocessing.util
 from collections import defaultdict
 from ribodetector import __version__
 
@@ -28,6 +29,8 @@ import ribodetector.data_loader.seq_encoder as SeqEncoder
 # Get the directory of the program
 cd = os.path.dirname(os.path.abspath(__file__))
 
+## makes the socket addresses extremely random again to esure no address conflicts
+multiprocessing.util.abstract_sockets_supported = False
 
 class Predictor:
     """

@@ -8,3 +8,4 @@ tmux*.log
 build
 dist
 *.egg-info
+**/*.bak
