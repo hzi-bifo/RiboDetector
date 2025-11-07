@@ -797,7 +797,8 @@ none: give label based on the mean probability of read pair.
 
     args.add_argument('-t', '--threads', default=20, type=int,
                       help='Number of threads to use. (default: 20)')
-
+    args.add_argument('-s', '--seed', default=None, type=int,
+                      help='Random seed.')
     args.add_argument('--chunk_size', default=None, type=int,
                       help='chunk_size * 1024 reads to load each time. \n{}.'.format(
                           'When chunk_size=1000 and threads=20, consumming ~20G memory, better to be multiples of the number of threads.'))
@@ -813,6 +814,9 @@ none: give label based on the mean probability of read pair.
     else:
         config_file = args.config
     config = ConfigParser.from_json(config_file)
+    
+    if args.seed:
+        onnxruntime.set_seed(args.seed)
 
     os.environ['OMP_NUM_THREADS'] = '1'
     # os.environ['MKL_NUM_THREADS'] = '1'
