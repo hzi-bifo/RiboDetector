@@ -785,6 +785,8 @@ none: give label based on the mean probability of read pair.
 
     args.add_argument('-t', '--threads', default=10, type=int,
                       help='Number of threads to use. (default: 10)')
+    args.add_argument('-s', '--seed', default=None, type=int,
+                      help='Random seed.')
     args.add_argument('-m', '--memory', default=32, type=int,
                       help='Amount (GB) of GPU RAM. (default: 12)')
     args.add_argument('--chunk_size', default=None, type=int,
@@ -804,6 +806,9 @@ none: give label based on the mean probability of read pair.
     else:
         config_file = args.config
     config = ConfigParser.from_json(config_file)
+    if isinstance(args.seed, int):
+        torch.manual_seed(args.seed)
+
     seq_pred = Predictor(config, args)
     seq_pred.load_model()
     seq_pred.detect()
