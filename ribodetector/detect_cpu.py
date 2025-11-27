@@ -815,7 +815,7 @@ none: give label based on the mean probability of read pair.
         config_file = args.config
     config = ConfigParser.from_json(config_file)
     
-    if args.seed:
+    if isinstance(args.seed, int):
         onnxruntime.set_seed(args.seed)
 
     os.environ['OMP_NUM_THREADS'] = '1'
