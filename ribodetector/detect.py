@@ -785,7 +785,7 @@ none: give label based on the mean probability of read pair.
 
     args.add_argument('-t', '--threads', default=10, type=int,
                       help='Number of threads to use. (default: 10)')
-    args.add_argument('-m', '--memory', default=32, type=int,
+    args.add_argument('-m', '--memory', default=12, type=int,
                       help='Amount (GB) of GPU RAM. (default: 12)')
     args.add_argument('--chunk_size', default=None, type=int,
                       help='Use this parameter when having low memory. Parsing the file in chunks.\n{}.\n{}.'.format(
