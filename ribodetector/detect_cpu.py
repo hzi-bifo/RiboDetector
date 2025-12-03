@@ -21,7 +21,6 @@ from tqdm import tqdm
 import multiprocessing as mp
 import multiprocessing.util
 from collections import defaultdict
-from contextlib import contextmanager
 from ribodetector import __version__
 
 # Timeout for process joins (seconds)
@@ -254,18 +253,6 @@ def cleanup_processes(pool, listener_proc=None, q_pbar=None, logger=None):
                 logger.warning(f'Listener process {listener_proc.pid} had to be force killed')
 
 
-@contextmanager
-def process_pool_context(pool, listener_proc=None, q_pbar=None, logger=None):
-    """Context manager for safe process pool cleanup.
-
-    Ensures all processes are properly terminated even if an exception occurs.
-    """
-    try:
-        yield
-    finally:
-        cleanup_processes(pool, listener_proc, q_pbar, logger)
-
-
 # Global registry for active processes (for signal handler cleanup)
 _active_processes = []
 _active_listener = None
@@ -464,7 +451,7 @@ class Predictor:
                         self.logger.warning(f'Worker process {p.pid} had to be force killed')
             finally:
                 # Ensure listener gets the stop signal and is cleaned up
-                cleanup_processes([], proc, q_pbar, self.logger)
+                cleanup_processes(pool, proc, q_pbar, self.logger)
                 clear_active_processes()
 
             self.logger.info('{}Writing outputs...{}'.format(
@@ -584,7 +571,7 @@ class Predictor:
                         self.logger.warning(f'Worker process {p.pid} had to be force killed')
             finally:
                 # Ensure listener gets the stop signal and is cleaned up
-                cleanup_processes([], proc, q_pbar, self.logger)
+                cleanup_processes(pool, proc, q_pbar, self.logger)
                 clear_active_processes()
 
             self.logger.info('{}Writing outputs...{}'.format(
@@ -712,11 +699,6 @@ class Predictor:
                     while results_received < batches_sent:
                         try:
                             result = result_queue.get(timeout=60)
-                            if isinstance(result, dict) and '_error' in result:
-                                self.logger.warning(f'Worker error: {result["_error"]}')
-                                results_received += 1
-                                continue
-
                             r1_dict, r2_dict = result
                             num_nonrrna += len(r1_dict.get(0, []))
                             num_rrna += len(r1_dict.get(1, []))
@@ -850,11 +832,6 @@ class Predictor:
                     while results_received < batches_sent:
                         try:
                             result = result_queue.get(timeout=60)
-                            if isinstance(result, dict) and '_error' in result:
-                                self.logger.warning(f'Worker error: {result["_error"]}')
-                                results_received += 1
-                                continue
-
                             r_dict = result
                             num_nonrrna += len(r_dict.get(0, []))
                             num_rrna += len(r_dict.get(1, []))
