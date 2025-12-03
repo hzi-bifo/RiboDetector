@@ -57,7 +57,7 @@ def _worker_classify_reads(work_queue, result_container, model_file, seq_len, q_
 
     Args:
         work_queue: Manager Queue of read batches to process (None signals stop)
-        result_container: Manager list (use append) or Queue (use put) to store results
+        result_container: Manager list to store results
         model_file: Path to ONNX model file
         seq_len: Maximum sequence length for encoding
         q_pbar: Optional progress bar queue
@@ -70,9 +70,6 @@ def _worker_classify_reads(work_queue, result_container, model_file, seq_len, q_
     except Exception as e:
         print(f"Worker failed to load model: {e}", file=sys.stderr, flush=True)
         return
-
-    # Detect result container type - list uses append, queue uses put
-    use_append = hasattr(result_container, 'append')
 
     while True:
         try:
@@ -93,11 +90,7 @@ def _worker_classify_reads(work_queue, result_container, model_file, seq_len, q_
             for read, label in zip(reads, labels):
                 reads_dict[label].append('\n'.join(read))
 
-            result = dict(reads_dict)
-            if use_append:
-                result_container.append(result)
-            else:
-                result_container.put(result)
+            result_container.append(dict(reads_dict))
             if q_pbar is not None:
                 q_pbar.put(1)
         except Exception as e:
@@ -111,7 +104,7 @@ def _worker_classify_paired_reads(work_queue, result_container, model_file, seq_
 
     Args:
         work_queue: Manager Queue of read pair batches to process (None signals stop)
-        result_container: Manager list (use append) or Queue (use put) to store results
+        result_container: Manager list to store results
         model_file: Path to ONNX model file
         seq_len: Maximum sequence length for encoding
         ensure_mode: The ensure mode for classification
@@ -125,9 +118,6 @@ def _worker_classify_paired_reads(work_queue, result_container, model_file, seq_
     except Exception as e:
         print(f"Worker failed to load model: {e}", file=sys.stderr, flush=True)
         return
-
-    # Detect result container type - list uses append, queue uses put
-    use_append = hasattr(result_container, 'append')
 
     while True:
         try:
@@ -186,11 +176,7 @@ def _worker_classify_paired_reads(work_queue, result_container, model_file, seq_
                     r1_dict[final_label].append('\n'.join(r1_read))
                     r2_dict[final_label].append('\n'.join(r2_read))
 
-            result = (dict(r1_dict), dict(r2_dict))
-            if use_append:
-                result_container.append(result)
-            else:
-                result_container.put(result)
+            result_container.append((dict(r1_dict), dict(r2_dict)))
             if q_pbar is not None:
                 q_pbar.put(1)
         except Exception as e:
@@ -442,8 +428,8 @@ class Predictor:
                 # Input reads batches
                 iters = itertools.chain(Predictor.generate_paired_read_batches(
                     input_reads, self.batch_size), (None,) * num_workers)
-                for read in iters:
-                    work.put(read)
+                for batch in iters:
+                    work.put(batch)
 
                 # Wait for workers with timeout
                 for p in pool:
@@ -562,8 +548,8 @@ class Predictor:
             try:
                 iters = itertools.chain(Predictor.generate_read_batches(
                     input_reads, self.batch_size), (None,) * num_workers)
-                for read in iters:
-                    work.put(read)
+                for batch in iters:
+                    work.put(batch)
 
                 # Wait for workers with timeout
                 for p in pool:
