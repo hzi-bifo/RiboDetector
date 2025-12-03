@@ -23,8 +23,8 @@ import multiprocessing.util
 from collections import defaultdict
 from ribodetector import __version__
 
-# Timeout for process joins (seconds)
-PROCESS_JOIN_TIMEOUT = 30
+# Timeout for process joins (seconds) - generous to handle slow batches
+PROCESS_JOIN_TIMEOUT = 120
 
 from argparse import RawTextHelpFormatter
 from ribodetector.parse_config import ConfigParser
@@ -665,9 +665,10 @@ class Predictor:
             # Load paired end reads with chunks
             for chunk in SeqEncoder.get_pairedread_chunks(*self.input,
                                                           chunk_size=read_chunk_size):
-                # Use regular queues instead of Manager proxies for reliability
-                work_queue = mp.Queue(num_workers * 2)
-                result_queue = mp.Queue()
+                # Use Manager for IPC (consistent with run() method)
+                manager = mp.Manager()
+                results = manager.list()
+                work = manager.Queue(num_workers)
 
                 pool = []
 
@@ -675,7 +676,7 @@ class Predictor:
                 for _i in range(num_workers):
                     p = mp.Process(
                         target=_worker_classify_paired_reads,
-                        args=(work_queue, result_queue, self.model_file, self.len, self.args.ensure)
+                        args=(work, results, self.model_file, self.len, self.args.ensure)
                     )
                     p.start()
                     pool.append(p)
@@ -685,40 +686,10 @@ class Predictor:
 
                 try:
                     # Send work batches to workers
-                    batches_sent = 0
-                    for batch in Predictor.generate_paired_read_batches(chunk, self.batch_size):
-                        work_queue.put(batch)
-                        batches_sent += 1
-
-                    # Send stop signals
-                    for _ in range(num_workers):
-                        work_queue.put(None)
-
-                    # Collect results
-                    results_received = 0
-                    while results_received < batches_sent:
-                        try:
-                            result = result_queue.get(timeout=60)
-                            r1_dict, r2_dict = result
-                            num_nonrrna += len(r1_dict.get(0, []))
-                            num_rrna += len(r1_dict.get(1, []))
-
-                            if r1_dict.get(0):
-                                norrna1_fh.write('\n'.join(r1_dict[0]) + '\n')
-                                norrna2_fh.write('\n'.join(r2_dict[0]) + '\n')
-                            if self.rrna is not None and r1_dict.get(1):
-                                rrna1_fh.write('\n'.join(r1_dict[1]) + '\n')
-                                rrna2_fh.write('\n'.join(r2_dict[1]) + '\n')
-
-                            if self.args.ensure == 'both' and r1_dict.get(-1):
-                                unclf1_fh.write('\n'.join(r1_dict[-1]) + '\n')
-                                unclf2_fh.write('\n'.join(r2_dict[-1]) + '\n')
-                                num_unknown += len(r1_dict[-1])
-
-                            results_received += 1
-                        except Exception as e:
-                            self.logger.warning(f'Error getting result: {e}')
-                            break
+                    iters = itertools.chain(Predictor.generate_paired_read_batches(
+                        chunk, self.batch_size), (None,) * num_workers)
+                    for batch in iters:
+                        work.put(batch)
 
                     # Wait for workers to finish
                     for p in pool:
@@ -728,6 +699,23 @@ class Predictor:
                     # Ensure all processes are cleaned up even on error
                     cleanup_processes(pool, logger=self.logger)
                     clear_active_processes()
+
+                # Process results
+                for r1_dict, r2_dict in results:
+                    num_nonrrna += len(r1_dict.get(0, []))
+                    num_rrna += len(r1_dict.get(1, []))
+
+                    if r1_dict.get(0):
+                        norrna1_fh.write('\n'.join(r1_dict[0]) + '\n')
+                        norrna2_fh.write('\n'.join(r2_dict[0]) + '\n')
+                    if self.rrna is not None and r1_dict.get(1):
+                        rrna1_fh.write('\n'.join(r1_dict[1]) + '\n')
+                        rrna2_fh.write('\n'.join(r2_dict[1]) + '\n')
+
+                    if self.args.ensure == 'both' and r1_dict.get(-1):
+                        unclf1_fh.write('\n'.join(r1_dict[-1]) + '\n')
+                        unclf2_fh.write('\n'.join(r2_dict[-1]) + '\n')
+                        num_unknown += len(r1_dict[-1])
 
                 num_read += len(chunk[0])
 
@@ -799,16 +787,17 @@ class Predictor:
             for chunk in SeqEncoder.get_seq_chunks(*self.input,
                                                    chunk_size=read_chunk_size):
 
-                # Use regular queues instead of Manager proxies for reliability
-                work_queue = mp.Queue(num_workers * 2)
-                result_queue = mp.Queue()
+                # Use Manager for IPC (consistent with run() method)
+                manager = mp.Manager()
+                results = manager.list()
+                work = manager.Queue(num_workers)
 
                 pool = []
 
                 for _i in range(num_workers):
                     p = mp.Process(
                         target=_worker_classify_reads,
-                        args=(work_queue, result_queue, self.model_file, self.len)
+                        args=(work, results, self.model_file, self.len)
                     )
                     p.start()
                     pool.append(p)
@@ -818,33 +807,10 @@ class Predictor:
 
                 try:
                     # Send work batches to workers
-                    batches_sent = 0
-                    for batch in Predictor.generate_read_batches(chunk, self.batch_size):
-                        work_queue.put(batch)
-                        batches_sent += 1
-
-                    # Send stop signals
-                    for _ in range(num_workers):
-                        work_queue.put(None)
-
-                    # Collect results
-                    results_received = 0
-                    while results_received < batches_sent:
-                        try:
-                            result = result_queue.get(timeout=60)
-                            r_dict = result
-                            num_nonrrna += len(r_dict.get(0, []))
-                            num_rrna += len(r_dict.get(1, []))
-
-                            if r_dict.get(0):
-                                norrna_fh.write('\n'.join(r_dict[0]) + '\n')
-                            if self.rrna is not None and r_dict.get(1):
-                                rrna_fh.write('\n'.join(r_dict[1]) + '\n')
-
-                            results_received += 1
-                        except Exception as e:
-                            self.logger.warning(f'Error getting result: {e}')
-                            break
+                    iters = itertools.chain(Predictor.generate_read_batches(
+                        chunk, self.batch_size), (None,) * num_workers)
+                    for batch in iters:
+                        work.put(batch)
 
                     # Wait for workers to finish
                     for p in pool:
@@ -854,6 +820,16 @@ class Predictor:
                     # Ensure all processes are cleaned up even on error
                     cleanup_processes(pool, logger=self.logger)
                     clear_active_processes()
+
+                # Process results
+                for r_dict in results:
+                    num_nonrrna += len(r_dict.get(0, []))
+                    num_rrna += len(r_dict.get(1, []))
+
+                    if r_dict.get(0):
+                        norrna_fh.write('\n'.join(r_dict[0]) + '\n')
+                    if self.rrna is not None and r_dict.get(1):
+                        rrna_fh.write('\n'.join(r_dict[1]) + '\n')
 
                 num_read += len(chunk)
 
