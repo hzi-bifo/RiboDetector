@@ -161,9 +161,11 @@ def _raise_worker_errors(error_queue):
         raise RuntimeError(errors[0])
 
 
-def _put_with_worker_error_check(work, item, error_queue):
+def _put_with_worker_error_check(work, item, error_queue, pool=None):
     while True:
         _raise_worker_errors(error_queue)
+        if pool is not None:
+            _raise_if_worker_exit_failed(pool)
         try:
             work.put(item, timeout=1)
             return
@@ -366,9 +368,9 @@ class Predictor:
             try:
                 # Input read batches
                 for read in Predictor.generate_paired_read_batches(input_reads, self.batch_size):
-                    _put_with_worker_error_check(work, read, error_queue)
+                    _put_with_worker_error_check(work, read, error_queue, pool)
                 for _ in range(num_workers):
-                    _put_with_worker_error_check(work, None, error_queue)
+                    _put_with_worker_error_check(work, None, error_queue, pool)
 
                 for p in pool:
                     p.join()
@@ -489,9 +491,9 @@ class Predictor:
 
             try:
                 for read in Predictor.generate_read_batches(input_reads, self.batch_size):
-                    _put_with_worker_error_check(work, read, error_queue)
+                    _put_with_worker_error_check(work, read, error_queue, pool)
                 for _ in range(num_workers):
-                    _put_with_worker_error_check(work, None, error_queue)
+                    _put_with_worker_error_check(work, None, error_queue, pool)
 
                 for p in pool:
                     p.join()
@@ -621,9 +623,9 @@ class Predictor:
                 try:
                     # Input reads batches for each chunk
                     for read in Predictor.generate_paired_read_batches(chunk, self.batch_size):
-                        _put_with_worker_error_check(work, read, error_queue)
+                        _put_with_worker_error_check(work, read, error_queue, pool)
                     for _ in range(num_workers):
-                        _put_with_worker_error_check(work, None, error_queue)
+                        _put_with_worker_error_check(work, None, error_queue, pool)
 
                     for p in pool:
                         p.join()
@@ -745,9 +747,9 @@ class Predictor:
 
                 try:
                     for read in Predictor.generate_read_batches(chunk, self.batch_size):
-                        _put_with_worker_error_check(work, read, error_queue)
+                        _put_with_worker_error_check(work, read, error_queue, pool)
                     for _ in range(num_workers):
-                        _put_with_worker_error_check(work, None, error_queue)
+                        _put_with_worker_error_check(work, None, error_queue, pool)
 
                     for p in pool:
                         p.join()
