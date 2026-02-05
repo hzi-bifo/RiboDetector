@@ -625,8 +625,8 @@ class Predictor:
         r2_dict = defaultdict(list)
 
         if self.args.ensure == 'rrna':
-            r1_labels = torch.argmax(r1_outs, axis=1).tolist()
-            r2_labels = torch.argmax(r2_outs, axis=1).tolist()
+            r1_labels = torch.argmax(r1_outs, dim=1).tolist()
+            r2_labels = torch.argmax(r2_outs, dim=1).tolist()
             for r1, r1_label, r2, r2_label in zip(r1_reads, r1_labels, r2_reads, r2_labels):
 
                 if r1_label == r2_label == 1:
@@ -636,8 +636,8 @@ class Predictor:
                 r1_dict[final_label].append(r1)
                 r2_dict[final_label].append(r2)
         elif self.args.ensure == 'norrna':
-            r1_labels = torch.argmax(r1_outs, axis=1).tolist()
-            r2_labels = torch.argmax(r2_outs, axis=1).tolist()
+            r1_labels = torch.argmax(r1_outs, dim=1).tolist()
+            r2_labels = torch.argmax(r2_outs, dim=1).tolist()
             for r1, r1_label, r2, r2_label in zip(r1_reads, r1_labels, r2_reads, r2_labels):
                 if r1_label == r2_label == 0:
                     final_label = 0
@@ -647,8 +647,8 @@ class Predictor:
                 r1_dict[final_label].append(r1)
                 r2_dict[final_label].append(r2)
         elif self.args.ensure == 'both':
-            r1_labels = torch.argmax(r1_outs, axis=1).tolist()
-            r2_labels = torch.argmax(r2_outs, axis=1).tolist()
+            r1_labels = torch.argmax(r1_outs, dim=1).tolist()
+            r2_labels = torch.argmax(r2_outs, dim=1).tolist()
             for r1, r1_label, r2, r2_label in zip(r1_reads, r1_labels, r2_reads, r2_labels):
                 if r1_label == r2_label == 0:
                     final_label = 0
@@ -661,7 +661,7 @@ class Predictor:
                 r2_dict[final_label].append(r2)
         else:
 
-            final_labels = torch.argmax(r1_outs + r2_outs, axis=1).tolist()
+            final_labels = torch.argmax(r1_outs + r2_outs, dim=1).tolist()
             for r1, r2, final_label in zip(r1_reads, r2_reads, final_labels):
 
                 r1_dict[final_label].append(r1)
