@@ -1,5 +1,6 @@
 import torch
 from torch import jit
+from torch.jit import _unwrap_optional
 import torch.nn as nn
 from typing import Tuple
 from torch import Tensor
@@ -106,7 +107,8 @@ def sorted_last_indices(pack: PackedSequence) -> Tensor:
 @jit.script
 def first_items(pack: PackedSequence, unsort: bool) -> Tensor:
     if unsort and pack.unsorted_indices is not None:
-        return pack.data[pack.unsorted_indices.to(pack.data.device)]
+        indices = _unwrap_optional(pack.unsorted_indices)
+        return pack.data[indices.to(pack.data.device)]
     else:
         return pack.data[:pack.batch_sizes[0]]
 
@@ -115,6 +117,7 @@ def first_items(pack: PackedSequence, unsort: bool) -> Tensor:
 def last_items(pack: PackedSequence, unsort: bool) -> Tensor:
     indices = sorted_last_indices(pack=pack)
     if unsort and pack.unsorted_indices is not None:
-        indices = indices[pack.unsorted_indices]
+        unsorted = _unwrap_optional(pack.unsorted_indices)
+        indices = indices[unsorted]
     indices = indices.to(pack.data.device)
     return pack.data[indices]
