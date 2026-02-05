@@ -11,14 +11,18 @@ required = [
     "tqdm",
     "numpy",
     "biopython",
-    "onnxruntime >= 1.10.0, <= 1.15.1",
-    "torch >= 1.7.1, <= 1.12.1",
+#    "onnxruntime >= 1.18.0",
+    "onnxruntime>=1.10.0; python_version<'3.12'",
+    "onnxruntime>=1.19.0; python_version>='3.12'",
+#    "torch >= 1.7.1, <= 2.12.1",
+    "torch>=1.7.1,<2.2; python_version<'3.12'",
+    "torch>=2.3.1; python_version>='3.12'",
 ]
 
 setup(
     name="ribodetector",
     version="0.3.3",
-    python_requires=">=3.8, <=3.12",
+    python_requires=">=3.8, <3.13",
     author="Z-L Deng",
     author_email="dawnmsg@gmail.com",
     description="Accurate and rapid RiboRNA sequences Detector based on deep learning.",
