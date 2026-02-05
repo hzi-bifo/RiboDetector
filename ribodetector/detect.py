@@ -61,21 +61,28 @@ class Predictor:
             self.logger.info(
                 'The accuracy will drop with reads shorter than 40.')
 
-        # High recall model if ensure non-rRNA
-        if self.args.ensure == 'norrna':
-            model_file_ext = 'recall'
+        if self.args.model_file:
+            model_base = self.args.model_file
+            if model_base.endswith('.pth') or model_base.endswith('.onnx'):
+                model_base = os.path.splitext(model_base)[0]
+            self.state_file = model_base + '.pth'
+            self.logger.info('Using model file: {}'.format(self.state_file))
         else:
-            model_file_ext = 'mcc'
+            # High recall model if ensure non-rRNA
+            if self.args.ensure == 'norrna':
+                model_file_ext = 'recall'
+            else:
+                model_file_ext = 'mcc'
 
-        self.state_file = os.path.join(
-            cd, self.config['state_file'][model_file_ext])
-        # self.logger.info('Using high {} model file: {}{}{}{}'.format(model_file_ext.upper(),
-        #                                                             colors.BOLD,
-        #                                                             colors.OKCYAN,
-        #                                                             self.state_file,
-        #                                                             colors.ENDC))
+            self.state_file = os.path.join(
+                cd, self.config['state_file'][model_file_ext])
+            # self.logger.info('Using high {} model file: {}{}{}{}'.format(model_file_ext.upper(),
+            #                                                             colors.BOLD,
+            #                                                             colors.OKCYAN,
+            #                                                             self.state_file,
+            #                                                             colors.ENDC))
 
-        self.logger.info('Using high {} model'.format(model_file_ext.upper()))
+            self.logger.info('Using high {} model'.format(model_file_ext.upper()))
         
         self.logger.info('Log file: {}'.format(
             self.args.log
@@ -796,6 +803,8 @@ none: give label based on the mean probability of read pair.
                       ))
     args.add_argument('--log', default=None, type=str,
                       help='Log file name')
+    args.add_argument('--model-file', default=None, type=str,
+                      help='Model file path without extension (uses .pth). Default: packaged model_len70_101.')
     args.add_argument('-v', '--version', action='version',
                       version='%(prog)s {version}'.format(version=__version__))
 

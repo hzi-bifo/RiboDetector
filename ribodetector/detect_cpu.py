@@ -260,21 +260,28 @@ class Predictor:
             self.logger.info(
                 'The accuracy will drop with reads shorter than 40.')
 
-        # High recall model if ensure non-rRNA
-        if self.args.ensure == 'norrna':
-            model_file_ext = 'recall'
+        if self.args.model_file:
+            model_base = self.args.model_file
+            if model_base.endswith('.pth') or model_base.endswith('.onnx'):
+                model_base = os.path.splitext(model_base)[0]
+            self.model_file = model_base + '.onnx'
+            self.logger.info('Using model file: {}'.format(self.model_file))
         else:
-            model_file_ext = 'mcc'
+            # High recall model if ensure non-rRNA
+            if self.args.ensure == 'norrna':
+                model_file_ext = 'recall'
+            else:
+                model_file_ext = 'mcc'
 
-        self.model_file = os.path.join(
-            cd, self.config['state_file'][model_file_ext]).replace('.pth', '.onnx')
+            self.model_file = os.path.join(
+                cd, self.config['state_file'][model_file_ext]).replace('.pth', '.onnx')
 
-        # self.logger.info('Using high {} model file: {}{}{}{} on CPU'.format(model_file_ext.upper(),
-        #                                                                     colors.BOLD,
-        #                                                                     colors.OKCYAN,
-        #                                                                     self.model_file,
-        #                                                                     colors.ENDC))
-        self.logger.info('Using high {} model'.format(model_file_ext.upper()))
+            # self.logger.info('Using high {} model file: {}{}{}{} on CPU'.format(model_file_ext.upper(),
+            #                                                                     colors.BOLD,
+            #                                                                     colors.OKCYAN,
+            #                                                                     self.model_file,
+            #                                                                     colors.ENDC))
+            self.logger.info('Using high {} model'.format(model_file_ext.upper()))
         
         self.logger.info('Log file: {}'.format(
             self.args.log
@@ -924,6 +931,8 @@ none: give label based on the mean probability of read pair.
                           'When chunk_size=1000 and threads=20, consumming ~20G memory, better to be multiples of the number of threads.'))
     args.add_argument('--log', default=None, type=str,
                       help='Log file name')
+    args.add_argument('--model-file', default=None, type=str,
+                      help='Model file path without extension (uses .onnx). Default: packaged model_len70_101.')
     args.add_argument('-v', '--version', action='version',
                       version='%(prog)s {version}'.format(version=__version__))
 
