@@ -13,6 +13,8 @@ import gzip
 import math
 import torch
 import argparse
+import warnings
+import re
 
 from tqdm import tqdm
 from functools import partial
@@ -61,21 +63,28 @@ class Predictor:
             self.logger.info(
                 'The accuracy will drop with reads shorter than 40.')
 
-        # High recall model if ensure non-rRNA
-        if self.args.ensure == 'norrna':
-            model_file_ext = 'recall'
+        if self.args.model_file:
+            model_base = self.args.model_file
+            if model_base.endswith('.pth') or model_base.endswith('.onnx'):
+                model_base = os.path.splitext(model_base)[0]
+            self.state_file = model_base + '.pth'
+            self.logger.info('Using model file: {}'.format(self.state_file))
         else:
-            model_file_ext = 'mcc'
+            # High recall model if ensure non-rRNA
+            if self.args.ensure == 'norrna':
+                model_file_ext = 'recall'
+            else:
+                model_file_ext = 'mcc'
 
-        self.state_file = os.path.join(
-            cd, self.config['state_file'][model_file_ext])
-        # self.logger.info('Using high {} model file: {}{}{}{}'.format(model_file_ext.upper(),
-        #                                                             colors.BOLD,
-        #                                                             colors.OKCYAN,
-        #                                                             self.state_file,
-        #                                                             colors.ENDC))
+            self.state_file = os.path.join(
+                cd, self.config['state_file'][model_file_ext])
+            # self.logger.info('Using high {} model file: {}{}{}{}'.format(model_file_ext.upper(),
+            #                                                             colors.BOLD,
+            #                                                             colors.OKCYAN,
+            #                                                             self.state_file,
+            #                                                             colors.ENDC))
 
-        self.logger.info('Using high {} model'.format(model_file_ext.upper()))
+            self.logger.info('Using high {} model'.format(model_file_ext.upper()))
         
         self.logger.info('Log file: {}'.format(
             self.args.log
@@ -95,16 +104,59 @@ class Predictor:
         if self.config['n_gpu'] > 1:
             model = torch.nn.DataParallel(model)
 
-        if torch.cuda.is_available():
+        with warnings.catch_warnings(record=True) as cuda_warnings:
+            warnings.simplefilter("always")
+            cuda_available = torch.cuda.is_available()
+
+        if cuda_available:
             self.device = 'cuda'
             self.has_cuda = True
             state = torch.load(self.state_file)
         else:
-            self.logger.error('{}No visible CUDA devices!{} Please use ribodetector_cpu to run it on CPU if you do not have GPU or \nyou need to install GPU version of PyTorch'.format(
+            driver_warning = None
+            for warning in cuda_warnings:
+                msg = str(warning.message)
+                if 'driver on your system is too old' in msg:
+                    driver_warning = msg
+                    break
+
+            torch_cuda = torch.version.cuda
+            details = []
+            details.append('PyTorch CUDA build: {}'.format(torch_cuda if torch_cuda is not None else 'CPU-only'))
+
+            driver_code = None
+            driver_cuda = None
+            if driver_warning:
+                match = re.search(r'found version (\\d+)', driver_warning)
+                if match:
+                    driver_code = match.group(1)
+                    try:
+                        code_int = int(driver_code)
+                        driver_cuda = '{}.{}'.format(code_int // 1000, (code_int % 1000) // 10)
+                    except ValueError:
+                        driver_cuda = None
+
+            if driver_warning:
+                details.append('Reason: NVIDIA driver is too old for this PyTorch build.')
+                if driver_cuda and driver_code:
+                    details.append('Driver CUDA version: {} (reported {}).'.format(driver_cuda, driver_code))
+                else:
+                    details.append('Driver warning: {}'.format(driver_warning))
+                details.append('Fix: install a PyTorch build for your driver (e.g. cu121 for CUDA 12.x), or upgrade the driver.')
+            else:
+                details.append('Reason: CUDA is not available to PyTorch.')
+                details.append('Fix: verify NVIDIA driver, CUDA_VISIBLE_DEVICES, and install a compatible torch build.')
+
+            cuda_visible = os.environ.get('CUDA_VISIBLE_DEVICES')
+            if cuda_visible is not None:
+                details.append('CUDA_VISIBLE_DEVICES={}'.format(cuda_visible))
+
+            self.logger.error('{}CUDA unavailable.{}\n{}'.format(
                 colors.FAIL,
-                colors.ENDC))
+                colors.ENDC,
+                '\n'.join(details)))
             raise RuntimeError(
-                "Set CUDA_VISIBLE_DEVICES or use CPU inference.")
+                "CUDA unavailable. See log for details or use ribodetector_cpu.")
         self.logger.info('Model using {} for read length {}{}{}{} loaded'.format(
             self.device,
             colors.BOLD,
@@ -618,8 +670,8 @@ class Predictor:
         r2_dict = defaultdict(list)
 
         if self.args.ensure == 'rrna':
-            r1_labels = torch.argmax(r1_outs, axis=1).tolist()
-            r2_labels = torch.argmax(r2_outs, axis=1).tolist()
+            r1_labels = torch.argmax(r1_outs, dim=1).tolist()
+            r2_labels = torch.argmax(r2_outs, dim=1).tolist()
             for r1, r1_label, r2, r2_label in zip(r1_reads, r1_labels, r2_reads, r2_labels):
 
                 if r1_label == r2_label == 1:
@@ -629,8 +681,8 @@ class Predictor:
                 r1_dict[final_label].append(r1)
                 r2_dict[final_label].append(r2)
         elif self.args.ensure == 'norrna':
-            r1_labels = torch.argmax(r1_outs, axis=1).tolist()
-            r2_labels = torch.argmax(r2_outs, axis=1).tolist()
+            r1_labels = torch.argmax(r1_outs, dim=1).tolist()
+            r2_labels = torch.argmax(r2_outs, dim=1).tolist()
             for r1, r1_label, r2, r2_label in zip(r1_reads, r1_labels, r2_reads, r2_labels):
                 if r1_label == r2_label == 0:
                     final_label = 0
@@ -640,8 +692,8 @@ class Predictor:
                 r1_dict[final_label].append(r1)
                 r2_dict[final_label].append(r2)
         elif self.args.ensure == 'both':
-            r1_labels = torch.argmax(r1_outs, axis=1).tolist()
-            r2_labels = torch.argmax(r2_outs, axis=1).tolist()
+            r1_labels = torch.argmax(r1_outs, dim=1).tolist()
+            r2_labels = torch.argmax(r2_outs, dim=1).tolist()
             for r1, r1_label, r2, r2_label in zip(r1_reads, r1_labels, r2_reads, r2_labels):
                 if r1_label == r2_label == 0:
                     final_label = 0
@@ -654,7 +706,7 @@ class Predictor:
                 r2_dict[final_label].append(r2)
         else:
 
-            final_labels = torch.argmax(r1_outs + r2_outs, axis=1).tolist()
+            final_labels = torch.argmax(r1_outs + r2_outs, dim=1).tolist()
             for r1, r2, final_label in zip(r1_reads, r2_reads, final_labels):
 
                 r1_dict[final_label].append(r1)
@@ -796,6 +848,8 @@ none: give label based on the mean probability of read pair.
                       ))
     args.add_argument('--log', default=None, type=str,
                       help='Log file name')
+    args.add_argument('--model-file', default=None, type=str,
+                      help='Model file path without extension (uses .pth). Default: packaged model_len70_101.')
     args.add_argument('-v', '--version', action='version',
                       version='%(prog)s {version}'.format(version=__version__))
 

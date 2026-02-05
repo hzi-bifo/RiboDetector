@@ -11,6 +11,7 @@ Last Modified: 7th March 2022 12:02:19 pm
 import os
 import math
 import gzip
+import signal
 import argparse
 import platform
 import itertools
@@ -19,6 +20,7 @@ import numpy as np
 from tqdm import tqdm
 import multiprocessing as mp
 import multiprocessing.util
+from queue import Empty, Full
 from collections import defaultdict
 from ribodetector import __version__
 
@@ -32,6 +34,203 @@ cd = os.path.dirname(os.path.abspath(__file__))
 ## makes the socket addresses extremely random again to esure no address conflicts
 multiprocessing.util.abstract_sockets_supported = False
 
+
+def _create_onnx_session(model_file):
+    """Create an ONNX session inside a worker process."""
+    so = onnxruntime.SessionOptions()
+    so.intra_op_num_threads = 1
+    so.inter_op_num_threads = 1
+    so.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
+    return onnxruntime.InferenceSession(model_file, so)
+
+
+def _worker_error_msg(worker_name, exc):
+    return '{} failed ({}): {}'.format(worker_name, exc.__class__.__name__, exc)
+
+
+def _worker_classify_reads(work_queue, out_list, error_queue, model_file, seq_len, q_pbar=None):
+    """Classify single-end reads in worker process."""
+    try:
+        model = _create_onnx_session(model_file)
+        input_name = model.get_inputs()[0].name
+    except Exception as exc:
+        error_queue.put(_worker_error_msg('worker init', exc))
+        return
+
+    while True:
+        reads = work_queue.get()
+        if reads is None:
+            return
+        try:
+            input_encoded_reads = np.array([SeqEncoder.encode_variable_len_read(
+                read[1], max_len=seq_len) for read in reads], dtype=np.float32)
+            outputs = model.run(None, {input_name: input_encoded_reads})
+            labels = np.argmax(outputs[0], axis=1)
+            reads_dict = defaultdict(list)
+            for read, label in zip(reads, labels):
+                reads_dict[label].append('\n'.join(read))
+            out_list.append(dict(reads_dict))
+            if q_pbar is not None:
+                q_pbar.put(1)
+        except Exception as exc:
+            error_queue.put(_worker_error_msg('worker classify batch', exc))
+            return
+
+
+def _worker_classify_paired_reads(work_queue, out_list, error_queue, model_file, seq_len, ensure_mode, q_pbar=None):
+    """Classify paired-end reads in worker process."""
+    try:
+        model = _create_onnx_session(model_file)
+        input_name = model.get_inputs()[0].name
+    except Exception as exc:
+        error_queue.put(_worker_error_msg('worker init', exc))
+        return
+
+    while True:
+        reads = work_queue.get()
+        if reads is None:
+            return
+        try:
+            r1, r2 = reads
+
+            input_encoded_r1 = np.array([SeqEncoder.encode_variable_len_read(
+                read[1], max_len=seq_len) for read in r1], dtype=np.float32)
+            input_encoded_r2 = np.array([SeqEncoder.encode_variable_len_read(
+                read[1], max_len=seq_len) for read in r2], dtype=np.float32)
+
+            output_r1 = model.run(None, {input_name: input_encoded_r1})[0]
+            output_r2 = model.run(None, {input_name: input_encoded_r2})[0]
+
+            r1_dict = defaultdict(list)
+            r2_dict = defaultdict(list)
+
+            if ensure_mode == 'rrna':
+                r1_labels = np.argmax(output_r1, axis=1)
+                r2_labels = np.argmax(output_r2, axis=1)
+                for r1_read, r1_label, r2_read, r2_label in zip(r1, r1_labels, r2, r2_labels):
+                    final_label = 1 if r1_label == r2_label == 1 else 0
+                    r1_dict[final_label].append('\n'.join(r1_read))
+                    r2_dict[final_label].append('\n'.join(r2_read))
+            elif ensure_mode == 'norrna':
+                r1_labels = np.argmax(output_r1, axis=1)
+                r2_labels = np.argmax(output_r2, axis=1)
+                for r1_read, r1_label, r2_read, r2_label in zip(r1, r1_labels, r2, r2_labels):
+                    final_label = 0 if r1_label == r2_label == 0 else 1
+                    r1_dict[final_label].append('\n'.join(r1_read))
+                    r2_dict[final_label].append('\n'.join(r2_read))
+            elif ensure_mode == 'both':
+                r1_labels = np.argmax(output_r1, axis=1)
+                r2_labels = np.argmax(output_r2, axis=1)
+                for r1_read, r1_label, r2_read, r2_label in zip(r1, r1_labels, r2, r2_labels):
+                    if r1_label == r2_label == 0:
+                        final_label = 0
+                    elif r1_label == r2_label == 1:
+                        final_label = 1
+                    else:
+                        final_label = -1
+                    r1_dict[final_label].append('\n'.join(r1_read))
+                    r2_dict[final_label].append('\n'.join(r2_read))
+            else:
+                final_labels = np.argmax(output_r1 + output_r2, axis=1)
+                for r1_read, r2_read, final_label in zip(r1, r2, final_labels):
+                    r1_dict[final_label].append('\n'.join(r1_read))
+                    r2_dict[final_label].append('\n'.join(r2_read))
+
+            out_list.append((dict(r1_dict), dict(r2_dict)))
+            if q_pbar is not None:
+                q_pbar.put(1)
+        except Exception as exc:
+            error_queue.put(_worker_error_msg('worker classify batch', exc))
+            return
+
+
+def _drain_errors(error_queue):
+    errors = []
+    while True:
+        try:
+            errors.append(error_queue.get_nowait())
+        except Empty:
+            return errors
+        except Exception:
+            return errors
+
+
+def _raise_worker_errors(error_queue):
+    errors = _drain_errors(error_queue)
+    if errors:
+        raise RuntimeError(errors[0])
+
+
+def _put_with_worker_error_check(work, item, error_queue, pool=None):
+    while True:
+        _raise_worker_errors(error_queue)
+        if pool is not None:
+            _raise_if_worker_exit_failed(pool)
+        try:
+            work.put(item, timeout=1)
+            return
+        except Full:
+            continue
+
+
+def _raise_if_worker_exit_failed(pool):
+    failed = [(p.pid, p.exitcode) for p in pool if p.exitcode not in (0, None)]
+    if failed:
+        raise RuntimeError('Worker process exited abnormally: {}'.format(failed))
+
+
+def _terminate_process(proc, timeout=5):
+    if proc is None:
+        return
+    if not proc.is_alive():
+        return
+    proc.terminate()
+    proc.join(timeout=timeout)
+    if proc.is_alive():
+        proc.kill()
+        proc.join(timeout=1)
+
+
+def cleanup_processes(pool, listener_proc=None, q_pbar=None):
+    if q_pbar is not None:
+        try:
+            q_pbar.put_nowait(None)
+        except Exception:
+            pass
+    for p in pool:
+        _terminate_process(p)
+    _terminate_process(listener_proc)
+
+
+_active_pool = []
+_active_listener = None
+_active_q_pbar = None
+
+
+def register_active_processes(pool, listener=None, q_pbar=None):
+    global _active_pool, _active_listener, _active_q_pbar
+    _active_pool = pool
+    _active_listener = listener
+    _active_q_pbar = q_pbar
+
+
+def clear_active_processes():
+    global _active_pool, _active_listener, _active_q_pbar
+    _active_pool = []
+    _active_listener = None
+    _active_q_pbar = None
+
+
+def graceful_shutdown_handler(signum, frame):
+    cleanup_processes(_active_pool, _active_listener, _active_q_pbar)
+    clear_active_processes()
+    raise SystemExit(128 + signum)
+
+
+def setup_signal_handlers():
+    signal.signal(signal.SIGTERM, graceful_shutdown_handler)
+    signal.signal(signal.SIGINT, graceful_shutdown_handler)
+
 class Predictor:
     """
     Main class of predictor for rRNA, non-rRNA sequences
@@ -42,10 +241,6 @@ class Predictor:
         self.args = args
         self.logger = config.get_logger('predict', 1, self.args.log)
         self.chunk_size = self.args.chunk_size
-        # self.input = self.args.input
-        # self.output = self.args.output
-        # self.rrna = self.args.rrna
-        self.SENTINEL = 1  # progressbar signal
 
     def load_model(self):
         """Load the right model file for classification 
@@ -65,35 +260,32 @@ class Predictor:
             self.logger.info(
                 'The accuracy will drop with reads shorter than 40.')
 
-        # High recall model if ensure non-rRNA
-        if self.args.ensure == 'norrna':
-            model_file_ext = 'recall'
+        if self.args.model_file:
+            model_base = self.args.model_file
+            if model_base.endswith('.pth') or model_base.endswith('.onnx'):
+                model_base = os.path.splitext(model_base)[0]
+            self.model_file = model_base + '.onnx'
+            self.logger.info('Using model file: {}'.format(self.model_file))
         else:
-            model_file_ext = 'mcc'
+            # High recall model if ensure non-rRNA
+            if self.args.ensure == 'norrna':
+                model_file_ext = 'recall'
+            else:
+                model_file_ext = 'mcc'
 
-        self.model_file = os.path.join(
-            cd, self.config['state_file'][model_file_ext]).replace('.pth', '.onnx')
+            self.model_file = os.path.join(
+                cd, self.config['state_file'][model_file_ext]).replace('.pth', '.onnx')
 
-        # self.logger.info('Using high {} model file: {}{}{}{} on CPU'.format(model_file_ext.upper(),
-        #                                                                     colors.BOLD,
-        #                                                                     colors.OKCYAN,
-        #                                                                     self.model_file,
-        #                                                                     colors.ENDC))
-        self.logger.info('Using high {} model'.format(model_file_ext.upper()))
+            # self.logger.info('Using high {} model file: {}{}{}{} on CPU'.format(model_file_ext.upper(),
+            #                                                                     colors.BOLD,
+            #                                                                     colors.OKCYAN,
+            #                                                                     self.model_file,
+            #                                                                     colors.ENDC))
+            self.logger.info('Using high {} model'.format(model_file_ext.upper()))
         
         self.logger.info('Log file: {}'.format(
             self.args.log
             ))
-
-        so = onnxruntime.SessionOptions()
-        so.intra_op_num_threads = 1
-        so.inter_op_num_threads = 1
-        # so.so.enable_mem_pattern = False
-        # so.enable_cpu_mem_arena = False
-        # so.execution_mode = onnxruntime.ExecutionMode.ORT_SEQUENTIAL
-        so.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
-
-        self.model = onnxruntime.InferenceSession(self.model_file, so)
 
     def run(self):
         """
@@ -163,28 +355,42 @@ class Predictor:
 
                 num_unknown = 0
 
-            # Start the listener process to minitor the progress
+            error_queue = manager.Queue()
+
+            # Start the listener process to monitor the progress
             proc = mp.Process(target=self.listener, args=(q_pbar,))
             proc.start()
 
             # Start the classification processes
             for _i in range(num_workers):
-                p = mp.Process(target=self.classify_paired_reads,
-                               args=(work, results, q_pbar))
+                p = mp.Process(
+                    target=_worker_classify_paired_reads,
+                    args=(work, results, error_queue, self.model_file, self.len, self.args.ensure, q_pbar)
+                )
                 p.start()
                 pool.append(p)
 
-            # Input reads batches
-            iters = itertools.chain(Predictor.generate_paired_read_batches(
-                input_reads, self.batch_size), (None,) * num_workers)
-            for read in iters:
-                work.put(read)
+            register_active_processes(pool, proc, q_pbar)
 
-            for p in pool:
-                p.join()
+            try:
+                # Input read batches
+                for read in Predictor.generate_paired_read_batches(input_reads, self.batch_size):
+                    _put_with_worker_error_check(work, read, error_queue, pool)
+                for _ in range(num_workers):
+                    _put_with_worker_error_check(work, None, error_queue, pool)
 
-            q_pbar.put(None)
-            proc.join()
+                for p in pool:
+                    p.join()
+                _raise_worker_errors(error_queue)
+                _raise_if_worker_exit_failed(pool)
+            except Exception:
+                cleanup_processes(pool, proc, q_pbar)
+                clear_active_processes()
+                raise
+            else:
+                q_pbar.put(None)
+                proc.join()
+                clear_active_processes()
 
             self.logger.info('{}Writing outputs...{}'.format(
                 colors.OKBLUE,
@@ -193,22 +399,20 @@ class Predictor:
             for r1_dict, r2_dict in results:
                 # Load the prediciton results and split the input reads accordingly
                 
-                num_nonrrna += len(r1_dict[0])
-                num_rrna += len(r1_dict[1])
+                num_nonrrna += len(r1_dict.get(0, []))
+                num_rrna += len(r1_dict.get(1, []))
 
-                if r1_dict[0]:
+                if r1_dict.get(0):
                     norrna1_fh.write('\n'.join(r1_dict[0]) + '\n')
                     norrna2_fh.write('\n'.join(r2_dict[0]) + '\n')
-                if self.rrna is not None and r1_dict[1]:
+                if self.rrna is not None and r1_dict.get(1):
                     rrna1_fh.write('\n'.join(r1_dict[1]) + '\n')
                     rrna2_fh.write('\n'.join(r2_dict[1]) + '\n')
 
-                if self.args.ensure == 'both' and r1_dict[-1]:
+                if self.args.ensure == 'both' and r1_dict.get(-1):
                     unclf1_fh.write('\n'.join(r1_dict[-1]) + '\n')
                     unclf2_fh.write('\n'.join(r2_dict[-1]) + '\n')
                     num_unknown += len(r1_dict[-1])
-
-                    # del r1_data, r2_data, r1_output, r2_output, r1_batch_labels, r2_batch_labels
             
             self.logger.info('Processed {}{}{}{} sequences in total'.format(
                         colors.BOLD,
@@ -277,25 +481,39 @@ class Predictor:
 
             norrna_fh = open_for_write(self.output[0])
 
+            error_queue = manager.Queue()
+
             proc = mp.Process(target=self.listener, args=(q_pbar,))
             proc.start()
 
             for _i in range(num_workers):
-                p = mp.Process(target=self.classify_reads,
-                               args=(work, results, q_pbar))
+                p = mp.Process(
+                    target=_worker_classify_reads,
+                    args=(work, results, error_queue, self.model_file, self.len, q_pbar)
+                )
                 p.start()
                 pool.append(p)
 
-            iters = itertools.chain(Predictor.generate_read_batches(
-                input_reads, self.batch_size), (None,) * num_workers)
-            for read in iters:
-                work.put(read)
+            register_active_processes(pool, proc, q_pbar)
 
-            for p in pool:
-                p.join()
+            try:
+                for read in Predictor.generate_read_batches(input_reads, self.batch_size):
+                    _put_with_worker_error_check(work, read, error_queue, pool)
+                for _ in range(num_workers):
+                    _put_with_worker_error_check(work, None, error_queue, pool)
 
-            q_pbar.put(None)
-            proc.join()
+                for p in pool:
+                    p.join()
+                _raise_worker_errors(error_queue)
+                _raise_if_worker_exit_failed(pool)
+            except Exception:
+                cleanup_processes(pool, proc, q_pbar)
+                clear_active_processes()
+                raise
+            else:
+                q_pbar.put(None)
+                proc.join()
+                clear_active_processes()
 
             self.logger.info('{}Writing outputs...{}'.format(
                 colors.OKBLUE,
@@ -303,11 +521,11 @@ class Predictor:
 
             for r_dict in results:
 
-                num_nonrrna += len(r_dict[0])
-                num_rrna += len(r_dict[1])
-                if r_dict[0]:
+                num_nonrrna += len(r_dict.get(0, []))
+                num_rrna += len(r_dict.get(1, []))
+                if r_dict.get(0):
                     norrna_fh.write('\n'.join(r_dict[0]) + '\n')
-                if self.rrna is not None and r_dict[1]:
+                if self.rrna is not None and r_dict.get(1):
                     rrna_fh.write('\n'.join(r_dict[1]) + '\n')
 
             self.logger.info('Processed {}{}{}{} sequences in total'.format(
@@ -394,45 +612,56 @@ class Predictor:
                 # List to store prediction results
                 results = manager.list()
                 work = manager.Queue(num_workers)
+                error_queue = manager.Queue()
 
                 pool = []
 
                 # Start the classification processes
                 for _i in range(num_workers):
-                    p = mp.Process(target=self.classify_paired_reads,
-                                   args=(work, results))
+                    p = mp.Process(
+                        target=_worker_classify_paired_reads,
+                        args=(work, results, error_queue, self.model_file, self.len, self.args.ensure)
+                    )
                     p.start()
                     pool.append(p)
 
-                # Input reads batches for each chunk
-                iters = itertools.chain(Predictor.generate_paired_read_batches(
-                    chunk, self.batch_size), (None,) * num_workers)
-                for read in iters:
-                    work.put(read)
+                register_active_processes(pool)
 
-                for p in pool:
-                    p.join()
+                try:
+                    # Input reads batches for each chunk
+                    for read in Predictor.generate_paired_read_batches(chunk, self.batch_size):
+                        _put_with_worker_error_check(work, read, error_queue, pool)
+                    for _ in range(num_workers):
+                        _put_with_worker_error_check(work, None, error_queue, pool)
+
+                    for p in pool:
+                        p.join()
+                    _raise_worker_errors(error_queue)
+                    _raise_if_worker_exit_failed(pool)
+                except Exception:
+                    cleanup_processes(pool)
+                    clear_active_processes()
+                    raise
+                else:
+                    clear_active_processes()
 
                 for r1_dict, r2_dict in results:
                     # Load the prediciton results and split the input reads accordingly
 
-                    num_nonrrna += len(r1_dict[0])
-                    num_rrna += len(r1_dict[1])
+                    num_nonrrna += len(r1_dict.get(0, []))
+                    num_rrna += len(r1_dict.get(1, []))
                     
-                    if r1_dict[0]:
+                    if r1_dict.get(0):
                         norrna1_fh.write('\n'.join(r1_dict[0]) + '\n')
                         norrna2_fh.write('\n'.join(r2_dict[0]) + '\n')
-                    if self.rrna is not None and r1_dict[1]:
+                    if self.rrna is not None and r1_dict.get(1):
                         rrna1_fh.write('\n'.join(r1_dict[1]) + '\n')
                         rrna2_fh.write('\n'.join(r2_dict[1]) + '\n')
-                        # num_rrna += len(r1_dict[1])
 
-                    if self.args.ensure == 'both' and r1_dict[-1]:
+                    if self.args.ensure == 'both' and r1_dict.get(-1):
                         unclf1_fh.write('\n'.join(r1_dict[-1]) + '\n')
                         unclf2_fh.write('\n'.join(r2_dict[-1]) + '\n')
                         num_unknown += len(r1_dict[-1])
-
-                        # del r1_data, r2_data, r1_output, r2_output, r1_batch_labels, r2_batch_labels
                 num_read += len(chunk[0])
 
                 self.logger.info('{}{}{} sequences finished!'.format(
@@ -509,31 +738,45 @@ class Predictor:
                 # List to store prediction results
                 results = manager.list()
                 work = manager.Queue(num_workers)
+                error_queue = manager.Queue()
 
                 pool = []
 
                 for _i in range(num_workers):
-                    p = mp.Process(target=self.classify_reads,
-                                   args=(work, results))
+                    p = mp.Process(
+                        target=_worker_classify_reads,
+                        args=(work, results, error_queue, self.model_file, self.len)
+                    )
                     p.start()
                     pool.append(p)
 
-                iters = itertools.chain(Predictor.generate_read_batches(
-                    chunk, self.batch_size), (None,) * num_workers)
-                for read in iters:
-                    work.put(read)
+                register_active_processes(pool)
 
-                for p in pool:
-                    p.join()
+                try:
+                    for read in Predictor.generate_read_batches(chunk, self.batch_size):
+                        _put_with_worker_error_check(work, read, error_queue, pool)
+                    for _ in range(num_workers):
+                        _put_with_worker_error_check(work, None, error_queue, pool)
+
+                    for p in pool:
+                        p.join()
+                    _raise_worker_errors(error_queue)
+                    _raise_if_worker_exit_failed(pool)
+                except Exception:
+                    cleanup_processes(pool)
+                    clear_active_processes()
+                    raise
+                else:
+                    clear_active_processes()
 
                 for r_dict in results:
                     
-                    num_nonrrna += len(r_dict[0])
-                    num_rrna += len(r_dict[1])
+                    num_nonrrna += len(r_dict.get(0, []))
+                    num_rrna += len(r_dict.get(1, []))
 
-                    if r_dict[0]:
+                    if r_dict.get(0):
                         norrna_fh.write('\n'.join(r_dict[0]) + '\n')
-                    if self.rrna is not None and r_dict[1]:
+                    if self.rrna is not None and r_dict.get(1):
                         rrna_fh.write('\n'.join(r_dict[1]) + '\n')
 
                 num_read += len(chunk)
@@ -614,129 +857,13 @@ class Predictor:
         for i in range(0, len(r1), n):
             yield r1[i:i + n], r2[i:i + n]
 
-    @staticmethod
-    def separate_reads(reads, labels):
-        """Split the input reads based on the predicted label
-
-        Args:
-            reads (list): batch of input reads 
-            labels (list): list of predicted labels for the input reads
-
-        Returns:
-            dict: dict with key being label and value being read
-        """
-
-        reads_dict = defaultdict(list)
-        for read, label in zip(reads, labels):
-
-            reads_dict[label].append('\n'.join(read))
-        return reads_dict
-
-    def separate_paired_reads(self, r1_reads, r1_outs, r2_reads, r2_outs):
-        r1_dict = defaultdict(list)
-        r2_dict = defaultdict(list)
-
-        if self.args.ensure == 'rrna':
-            r1_labels = np.argmax(r1_outs, axis=1)
-            r2_labels = np.argmax(r2_outs, axis=1)
-            for r1, r1_label, r2, r2_label in zip(r1_reads, r1_labels, r2_reads, r2_labels):
-
-                if r1_label == r2_label == 1:
-                    final_label = 1
-                else:
-                    final_label = 0
-                r1_dict[final_label].append('\n'.join(r1))
-                r2_dict[final_label].append('\n'.join(r2))
-        elif self.args.ensure == 'norrna':
-            # for r1, r1_label, r2, r2_label in zip(r1, r1_labels, r2, r2_labels):
-            r1_labels = np.argmax(r1_outs, axis=1)
-            r2_labels = np.argmax(r2_outs, axis=1)
-            for r1, r1_label, r2, r2_label in zip(r1_reads, r1_labels, r2_reads, r2_labels):
-                if r1_label == r2_label == 0:
-                    final_label = 0
-                else:
-                    final_label = 1
-
-                r1_dict[final_label].append('\n'.join(r1))
-                r2_dict[final_label].append('\n'.join(r2))
-        elif self.args.ensure == 'both':
-            r1_labels = np.argmax(r1_outs, axis=1)
-            r2_labels = np.argmax(r2_outs, axis=1)
-            for r1, r1_label, r2, r2_label in zip(r1_reads, r1_labels, r2_reads, r2_labels):
-                # for r1, r1_label, r2, r2_label in zip(r1, r1_labels, r2, r2_labels):
-                if r1_label == r2_label == 0:
-                    final_label = 0
-                elif r1_label == r2_label == 1:
-                    final_label = 1
-                else:
-                    final_label = -1
-
-                r1_dict[final_label].append('\n'.join(r1))
-                r2_dict[final_label].append('\n'.join(r2))
-        else:
-
-            final_labels = np.argmax(r1_outs + r2_outs, axis=1)
-            for r1, r2, final_label in zip(r1_reads, r2_reads, final_labels):
-
-                r1_dict[final_label].append('\n'.join(r1))
-                r2_dict[final_label].append('\n'.join(r2))
-
-        return r1_dict, r2_dict
-
-    def classify_reads(self, batch, out_list, q_pbar=None):
-        """Classify reads batch
-
-        Args:
-            batch (list): batch of reads
-            out_list (list(dict)): list of separated {label: read} dicts
-            q_pbar (mp queue): queue for progressbar signal
-        """
-        while True:
-            reads = batch.get()
-            if reads == None:
-                return
-
-            input_encoded_reads = np.array([SeqEncoder.encode_variable_len_read(
-                read[1], max_len=self.len) for read in reads], dtype=np.float32)
-
-            inputs = {self.model.get_inputs()[0].name: input_encoded_reads}
-            outputs = self.model.run(None, inputs)
-
-            out_list.append(Predictor.separate_reads(
-                reads, np.argmax(outputs[0], axis=1)))
-            if q_pbar is not None:
-                q_pbar.put(self.SENTINEL)
-
-    def classify_paired_reads(self, batch, out_list, q_pbar=None):
-        while True:
-            reads = batch.get()
-            if reads == None:
-                return
-
-            r1, r2 = reads
-
-            input_encoded_r1 = np.array([SeqEncoder.encode_variable_len_read(
-                read[1], max_len=self.len) for read in r1], dtype=np.float32)
-
-            input_encoded_r2 = np.array([SeqEncoder.encode_variable_len_read(
-                read[1], max_len=self.len) for read in r2], dtype=np.float32)
-
-            output_r1 = self.model.run(
-                None, {self.model.get_inputs()[0].name: input_encoded_r1})[0]
-
-            output_r2 = self.model.run(
-                None, {self.model.get_inputs()[0].name: input_encoded_r2})[0]
-
-            out_list.append(self.separate_paired_reads(
-                r1, output_r1, r2, output_r2))
-
-            if q_pbar is not None:
-                q_pbar.put(self.SENTINEL)
-
     def listener(self, q_pbar):
         pbar = tqdm(total=self.num_batches)
-        for _ in iter(q_pbar.get, None):
-            pbar.update()
+        try:
+            for _ in iter(q_pbar.get, None):
+                pbar.update()
+        finally:
+            pbar.close()
 
 
 def open_for_write(read_file):
@@ -804,6 +931,8 @@ none: give label based on the mean probability of read pair.
                           'When chunk_size=1000 and threads=20, consumming ~20G memory, better to be multiples of the number of threads.'))
     args.add_argument('--log', default=None, type=str,
                       help='Log file name')
+    args.add_argument('--model-file', default=None, type=str,
+                      help='Model file path without extension (uses .onnx). Default: packaged model_len70_101.')
     args.add_argument('-v', '--version', action='version',
                       version='%(prog)s {version}'.format(version=__version__))
 
@@ -820,6 +949,8 @@ none: give label based on the mean probability of read pair.
 
     os.environ['OMP_NUM_THREADS'] = '1'
     # os.environ['MKL_NUM_THREADS'] = '1'
+
+    setup_signal_handlers()
 
     if platform.system() == 'Darwin':
         mp.set_start_method('fork')
