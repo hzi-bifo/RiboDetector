@@ -11,12 +11,11 @@ required = [
     "tqdm",
     "numpy",
     "biopython",
-#    "onnxruntime >= 1.18.0",
-    "onnxruntime>=1.10.0; python_version<'3.12'",
+    "onnxruntime>=1.12.0; python_version<'3.12'",
     "onnxruntime>=1.19.0; python_version>='3.12'",
-#    "torch >= 1.7.1, <= 2.12.1",
-    "torch>=1.7.1,<2.2; python_version<'3.12'",
-    "torch>=2.3.1; python_version>='3.12'",
+    "torch>=1.13.1,<2.2; python_version<'3.9'",
+    "torch>=1.13.1; python_version>='3.9' and python_version<'3.12'",
+    "torch>=2.2.0; python_version>='3.12'",
 ]
 
 setup(
