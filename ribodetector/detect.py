@@ -14,6 +14,7 @@ import math
 import torch
 import argparse
 import warnings
+import re
 
 from tqdm import tqdm
 from functools import partial
@@ -119,27 +120,41 @@ class Predictor:
                     driver_warning = msg
                     break
 
+            torch_cuda = torch.version.cuda
             details = []
-            if torch.version.cuda is None:
-                details.append('Installed torch is CPU-only (torch.version.cuda is None).')
-            else:
-                details.append('Installed torch CUDA build: {}'.format(torch.version.cuda))
+            details.append('PyTorch CUDA build: {}'.format(torch_cuda if torch_cuda is not None else 'CPU-only'))
+
+            driver_code = None
+            driver_cuda = None
+            if driver_warning:
+                match = re.search(r'found version (\\d+)', driver_warning)
+                if match:
+                    driver_code = match.group(1)
+                    try:
+                        code_int = int(driver_code)
+                        driver_cuda = '{}.{}'.format(code_int // 1000, (code_int % 1000) // 10)
+                    except ValueError:
+                        driver_cuda = None
 
             if driver_warning:
-                details.append('CUDA driver issue: {}'.format(driver_warning))
-                details.append('Fix: install a torch build compatible with your driver, or update the NVIDIA driver.')
+                details.append('Reason: NVIDIA driver is too old for this PyTorch build.')
+                if driver_cuda and driver_code:
+                    details.append('Driver CUDA version: {} (reported {}).'.format(driver_cuda, driver_code))
+                else:
+                    details.append('Driver warning: {}'.format(driver_warning))
+                details.append('Fix: install a PyTorch build for your driver (e.g. cu121 for CUDA 12.x), or upgrade the driver.')
             else:
-                details.append('CUDA is not available to PyTorch.')
+                details.append('Reason: CUDA is not available to PyTorch.')
                 details.append('Fix: verify NVIDIA driver, CUDA_VISIBLE_DEVICES, and install a compatible torch build.')
 
             cuda_visible = os.environ.get('CUDA_VISIBLE_DEVICES')
             if cuda_visible is not None:
                 details.append('CUDA_VISIBLE_DEVICES={}'.format(cuda_visible))
 
-            self.logger.error('{}CUDA unavailable.{} {}'.format(
+            self.logger.error('{}CUDA unavailable.{}\n{}'.format(
                 colors.FAIL,
                 colors.ENDC,
-                ' '.join(details)))
+                '\n'.join(details)))
             raise RuntimeError(
                 "CUDA unavailable. See log for details or use ribodetector_cpu.")
         self.logger.info('Model using {} for read length {}{}{}{} loaded'.format(
