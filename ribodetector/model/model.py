@@ -116,8 +116,9 @@ def first_items(pack: PackedSequence, unsort: bool) -> Tensor:
 @jit.script
 def last_items(pack: PackedSequence, unsort: bool) -> Tensor:
     indices = sorted_last_indices(pack=pack)
+    indices = indices.to(pack.data.device)
     if unsort and pack.unsorted_indices is not None:
         unsorted = _unwrap_optional(pack.unsorted_indices)
+        unsorted = unsorted.to(indices.device)
         indices = indices[unsorted]
-    indices = indices.to(pack.data.device)
     return pack.data[indices]
