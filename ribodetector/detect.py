@@ -13,6 +13,7 @@ import gzip
 import math
 import torch
 import argparse
+import warnings
 
 from tqdm import tqdm
 from functools import partial
@@ -102,16 +103,45 @@ class Predictor:
         if self.config['n_gpu'] > 1:
             model = torch.nn.DataParallel(model)
 
-        if torch.cuda.is_available():
+        with warnings.catch_warnings(record=True) as cuda_warnings:
+            warnings.simplefilter("always")
+            cuda_available = torch.cuda.is_available()
+
+        if cuda_available:
             self.device = 'cuda'
             self.has_cuda = True
             state = torch.load(self.state_file)
         else:
-            self.logger.error('{}No visible CUDA devices!{} Please use ribodetector_cpu to run it on CPU if you do not have GPU or \nyou need to install GPU version of PyTorch'.format(
+            driver_warning = None
+            for warning in cuda_warnings:
+                msg = str(warning.message)
+                if 'driver on your system is too old' in msg:
+                    driver_warning = msg
+                    break
+
+            details = []
+            if torch.version.cuda is None:
+                details.append('Installed torch is CPU-only (torch.version.cuda is None).')
+            else:
+                details.append('Installed torch CUDA build: {}'.format(torch.version.cuda))
+
+            if driver_warning:
+                details.append('CUDA driver issue: {}'.format(driver_warning))
+                details.append('Fix: install a torch build compatible with your driver, or update the NVIDIA driver.')
+            else:
+                details.append('CUDA is not available to PyTorch.')
+                details.append('Fix: verify NVIDIA driver, CUDA_VISIBLE_DEVICES, and install a compatible torch build.')
+
+            cuda_visible = os.environ.get('CUDA_VISIBLE_DEVICES')
+            if cuda_visible is not None:
+                details.append('CUDA_VISIBLE_DEVICES={}'.format(cuda_visible))
+
+            self.logger.error('{}CUDA unavailable.{} {}'.format(
                 colors.FAIL,
-                colors.ENDC))
+                colors.ENDC,
+                ' '.join(details)))
             raise RuntimeError(
-                "Set CUDA_VISIBLE_DEVICES or use CPU inference.")
+                "CUDA unavailable. See log for details or use ribodetector_cpu.")
         self.logger.info('Model using {} for read length {}{}{}{} loaded'.format(
             self.device,
             colors.BOLD,
